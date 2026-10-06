@@ -1,0 +1,17 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+pydantic>=2.7,<3
+python-multipart>=0.0.9,<1
+psycopg2-binary>=2.9,<3
+redis>=5,<7
+alembic>=1.13
+
+httpx>=0.27,<1
+websocket-client>=1.7,<2
+h2>=4.1,<5
+cryptography>=43,<47
+cos-python-sdk-v5>=1.9
+e2b>=2.10,<3
+playwright>=1.47,<2
+
+argon2-cffi>=23.1,<26

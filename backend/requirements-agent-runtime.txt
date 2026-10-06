@@ -1,0 +1,5 @@
+# Optional Tencent Agent Runtime adapters. The E2B-compatible SDK uses the
+# Agent Sandbox API Key; the Cloud API SDK is only needed for CAM control-plane
+# calls and short-lived instance tokens.
+e2b>=2.0,<3
+tencentcloud-sdk-python-ags>=3.1.183,<4

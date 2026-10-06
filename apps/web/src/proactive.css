@@ -1,0 +1,19 @@
+.proactive-settings fieldset{margin:0;padding:0;border:0;min-width:0}
+.proactive-options{padding:0 16px}
+.proactive-field,.proactive-toggle{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid var(--mc-line);font-size:14px}
+.proactive-options>:last-child{border-bottom:0}
+.proactive-field.stacked{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+.proactive-settings input,.proactive-settings select,.proactive-settings textarea{min-width:0;max-width:100%;border:1px solid var(--mc-line);border-radius:8px;background:var(--mc-bg);color:var(--mc-text);font:inherit;padding:8px}
+.proactive-settings input[type=number]{width:74px}.proactive-settings textarea{width:100%;resize:vertical}
+.proactive-time-window{display:flex;align-items:center;gap:8px;min-width:0}.proactive-time-window input{width:116px}
+.proactive-save{margin-top:16px}.proactive-settings :focus-visible{outline:2px solid var(--mc-user);outline-offset:2px}
+.proactive-settings .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.message-source-labels{display:flex;align-items:center;gap:8px;color:var(--mc-muted);font-size:12px}
+.app-shell.muse-shell .message.has-source-labels{flex-direction:column;align-items:flex-start;gap:6px}
+.message-proactive-label{padding:3px 8px;border:1px solid var(--mc-line);border-radius:6px;background:var(--mc-chip);color:var(--mc-muted);font:inherit;cursor:pointer}
+.message-proactive-label:hover{color:var(--mc-text);background:var(--mc-chip-hover)}
+.proactive-reason{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
+.app-shell.muse-shell .ms-body .subview{padding:0;overflow:visible;flex:none}
+.app-shell.muse-shell .ms-body .memory-grid{grid-template-columns:1fr}
+.app-shell.muse-shell .ms-body .section-heading{margin-bottom:16px}
+@media(max-width:720px){.proactive-field{flex-wrap:wrap}.proactive-field.stacked{flex-wrap:nowrap}.proactive-time-window{flex-wrap:wrap}.proactive-settings select{width:100%}.app-shell.muse-shell .ms-body .section-heading{flex-direction:column;align-items:flex-start}.message-source-labels{font-size:11px}}

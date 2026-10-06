@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f1110" />
+    <title>Luma · 你的个人助理</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/app/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand"><div class="brand-mark">✦</div><div><strong>Luma</strong><span>personal operating system</span></div></div>
+        <button class="new-chat" id="newChat"><span>＋</span> 新对话 <kbd>⌘ K</kbd></button>
+        <nav class="nav">
+          <button class="nav-item active" data-view="chat"><span>◈</span> 对话 <em id="conversationCount">1</em></button>
+          <button class="nav-item" data-view="missions"><span>◫</span> 任务 <em id="taskCount">0</em></button>
+          <button class="nav-item" data-view="memory"><span>✧</span> 记忆 <em id="memoryCount">0</em></button>
+          <button class="nav-item" data-view="activity"><span>◌</span> 活动</button>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="privacy-chip"><span class="pulse"></span><div><strong>本地优先</strong><small>你的资料留在此设备</small></div></div>
+          <div class="profile"><div class="avatar">L</div><div><strong>Li Wanx</strong><small>个人空间</small></div><span class="dots">•••</span></div>
+        </div>
+      </aside>
+
+      <main class="main-panel">
+        <header class="topbar"><div><span class="eyebrow">THURSDAY · OCT 02</span><h1 id="viewTitle">早上好，Li Wanx <span>☀</span></h1></div><div class="top-actions"><button class="icon-btn" title="搜索">⌕</button><button class="icon-btn" title="设置">⚙</button><button class="connect-btn"><span class="pulse"></span> 已连接</button></div></header>
+
+        <section class="dashboard" id="chatView">
+          <div class="briefing-card">
+            <div class="briefing-head"><div><span class="label">TODAY'S BRIEFING</span><h2>今天有空间<br />做重要的事。</h2></div><div class="sun-orbit">☼</div></div>
+            <div class="briefing-stats"><div><strong id="briefingTasks">0</strong><span>待处理任务</span></div><div><strong id="briefingMemories">0</strong><span>条长期记忆</span></div><div><strong>8:30</strong><span>下次简报</span></div></div>
+          </div>
+          <div class="chat-layout">
+            <div class="chat-column">
+              <div class="section-heading"><div><span class="label">CONVERSATION</span><h3>和 Luma 聊聊</h3></div><span class="mono" id="messageCount">0 条消息</span></div>
+              <div class="messages" id="messages"></div>
+              <div class="composer-wrap"><div class="composer-tools"><button id="voiceBtn">◉ 语音</button><button id="attachBtn">⊕ 添加上下文</button><span class="composer-hint">Enter 发送 · Shift + Enter 换行</span></div><form class="composer" id="chatForm"><textarea id="composerInput" rows="1" placeholder="告诉我你正在想什么…"></textarea><button class="send-btn" type="submit">↑</button></form></div>
+            </div>
+            <aside class="context-rail"><div class="rail-heading"><span>IN FOCUS</span><button class="small-link" data-view="missions">查看全部</button></div><div id="focusTasks" class="focus-list"></div><div class="rail-heading memory-heading"><span>RECENT MEMORY</span><button class="small-link" data-view="memory">管理</button></div><div id="recentMemory" class="memory-list"></div></aside>
+          </div>
+        </section>
+
+        <section class="subview hidden" id="missionsView"><div class="section-heading"><div><span class="label">MISSIONS</span><h3>让事情持续向前</h3></div><button class="primary-btn" id="addTaskBtn">＋ 新任务</button></div><div class="mission-grid" id="missionGrid"></div></section>
+        <section class="subview hidden" id="memoryView"><div class="section-heading"><div><span class="label">MEMORY</span><h3>Luma 记得什么</h3><p class="subcopy">你可以随时查看、编辑或删除。只有你确认过的内容会进入长期记忆。</p></div><button class="primary-btn" id="addMemoryBtn">＋ 添加记忆</button></div><div class="memory-grid" id="memoryGrid"></div></section>
+        <section class="subview hidden" id="activityView"><div class="section-heading"><div><span class="label">ACTIVITY LOG</span><h3>最近发生了什么</h3><p class="subcopy">每次工具调用和任务状态变化都会留下一条可追溯记录。</p></div></div><div class="activity-list" id="activityList"></div></section>
+      </main>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script src="/app/app.js"></script>
+  </body>
+</html>

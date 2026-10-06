@@ -1,0 +1,36 @@
+.ideas-page{flex:1;min-width:0;min-height:0;overflow:auto;padding:38px clamp(24px,5vw,80px) 70px;background:var(--mc-bg);color:var(--mc-text)}
+.ideas-page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;max-width:960px;margin:0 auto 32px}
+.ideas-page-header h1{margin:0 0 8px;font-size:28px;line-height:1.3;font-weight:650;letter-spacing:-.5px}
+.ideas-page-header p{margin:0;color:var(--mc-muted);font-size:14px;line-height:1.7}
+.ideas-refresh,.ideas-start{display:inline-flex;flex:none;align-items:center;justify-content:center;gap:7px;min-height:38px;border:1px solid var(--mc-line);border-radius:10px;padding:0 14px;background:var(--mc-chip);color:var(--mc-text);font:inherit;font-size:13px;cursor:pointer}
+.ideas-refresh:hover{background:var(--mc-chip-hover)}
+.ideas-refresh:disabled,.ideas-start:disabled{opacity:.5;cursor:not-allowed}
+.ideas-section{max-width:960px;margin:0 auto 30px}
+.ideas-section h2{margin:0 0 12px;color:var(--mc-muted);font-size:13px;font-weight:600}
+.ideas-list{display:grid;grid-template-columns:1fr;gap:3px}
+.ideas-row{display:flex;align-items:center;gap:16px;min-width:0;padding:17px 14px;border:1px solid transparent;border-radius:14px}
+.ideas-row:hover,.ideas-row:focus-within{background:var(--mc-chip);border-color:var(--mc-line)}
+.ideas-row-icon{display:grid;place-items:center;flex:none;width:42px;height:42px;border:1px solid var(--mc-line);border-radius:12px;background:var(--mc-bubble);color:var(--mc-text)}
+.ideas-row-copy{display:grid;flex:1;min-width:0;gap:5px;border:0;padding:0;background:transparent;color:var(--mc-text);font:inherit;text-align:left;cursor:pointer}
+.ideas-row-copy strong{font-size:15px;line-height:1.5;font-weight:600;overflow-wrap:anywhere}
+.ideas-row-copy span{color:var(--mc-muted);font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.ideas-empty{max-width:960px;margin:0 auto;padding:22px 14px;border:1px dashed var(--mc-line);border-radius:12px;color:var(--mc-muted);font-size:14px;line-height:1.65}
+.ideas-generating,.ideas-error{display:flex;align-items:center;gap:9px;max-width:960px;margin:0 auto 24px;padding:12px 14px;border:1px solid var(--mc-line);border-radius:10px;background:var(--mc-chip);color:var(--mc-muted);font-size:13px;line-height:1.6}
+.ideas-generating svg{flex:none;animation:ideas-loader-spin 1s linear infinite}
+.ideas-error{justify-content:space-between}
+.ideas-error button{flex:none;border:0;border-radius:7px;padding:6px 9px;background:var(--mc-bubble);color:var(--mc-text);font:inherit;cursor:pointer}
+.ideas-detail-summary{margin:0 0 22px;color:var(--mc-muted);font-size:14px;line-height:1.75;overflow-wrap:anywhere}
+.ideas-detail-plan{font-size:14px;line-height:1.75;overflow-wrap:anywhere}
+.ideas-detail-plan .message-markdown{max-width:none}
+.ideas-sources{margin-top:28px;padding-top:18px;border-top:1px solid var(--mc-line)}
+.ideas-sources h3{margin:0 0 10px;color:var(--mc-muted);font-size:12px;font-weight:600}
+.ideas-sources button{display:flex;align-items:center;gap:8px;width:100%;border:0;border-radius:8px;padding:9px 7px;background:transparent;color:var(--mc-text);font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.ideas-sources button:hover{background:var(--mc-chip-hover)}
+.ideas-sources button span{flex:1;min-width:0;overflow-wrap:anywhere}
+.ideas-detail-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:28px;padding-top:18px;border-top:1px solid var(--mc-line)}
+.ideas-start{min-height:40px;border-color:var(--mc-user);background:var(--mc-user);color:var(--mc-on-accent,#fff)}
+.ideas-start:hover{filter:brightness(1.08)}
+.ideas-page button:focus-visible{outline:2px solid var(--mc-user);outline-offset:3px}
+@keyframes ideas-loader-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.ideas-generating svg{animation:none}}
+@media(max-width:720px){.ideas-page{padding:24px 16px 48px}.ideas-page-header{gap:14px;margin-bottom:25px}.ideas-page-header h1{font-size:24px}.ideas-page-header p{font-size:13px}.ideas-refresh{padding:0 10px;font-size:12px}.ideas-list{grid-template-columns:minmax(0,1fr)}.ideas-row{gap:11px;padding:15px 7px}.ideas-row-icon{width:36px;height:36px;border-radius:10px}.ideas-row-copy strong{font-size:14px}.ideas-row-copy span{font-size:12px}}

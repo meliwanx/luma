@@ -1,0 +1,18 @@
+.content-backdrop{position:fixed;inset:0;z-index:150;display:flex;align-items:center;justify-content:center;padding:24px;background:color-mix(in srgb,var(--mc-text) 25%,transparent)}
+.app-shell.muse-shell{--mc-on-accent:#fff}
+.app-shell.muse-shell:is(.view-library,.view-ideas,.view-activity) .chat-topbar{position:relative;flex:none}
+.content-dialog{width:min(840px,100%);max-height:90vh;display:flex;flex-direction:column;min-width:0;border:1px solid var(--mc-line);border-radius:20px;background:var(--mc-bg);color:var(--mc-text);box-shadow:0 20px 80px color-mix(in srgb,var(--mc-text) 15%,transparent);outline:none}
+.content-dialog-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 24px;border-bottom:1px solid var(--mc-line)}
+.content-dialog-header h2{margin:0;min-width:0;font-size:20px;overflow-wrap:anywhere}
+.content-dialog-header .icon-btn{display:grid;place-items:center;flex:none;width:32px;height:32px;padding:0;border:0;border-radius:50%;background:var(--mc-chip);color:var(--mc-text);cursor:pointer}
+.content-dialog-body{min-height:0;padding:24px;overflow:auto;overscroll-behavior:contain}
+.content-action-menu{position:relative;flex:none}
+.content-action-menu summary{width:32px;height:32px;display:grid;place-items:center;border-radius:8px;color:var(--mc-muted);cursor:pointer;list-style:none}
+.content-action-menu summary::-webkit-details-marker{display:none}
+.content-action-menu summary:hover,.content-action-menu[open] summary{background:var(--mc-chip);color:var(--mc-text)}
+.content-menu-items{position:absolute;right:0;top:36px;z-index:5;min-width:160px;padding:5px;border:1px solid var(--mc-line);border-radius:12px;background:var(--mc-bg);box-shadow:0 8px 24px color-mix(in srgb,var(--mc-text) 12%,transparent)}
+.content-menu-items button{width:100%;padding:9px 12px;border:0;border-radius:7px;text-align:left;background:transparent;color:var(--mc-text);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.content-menu-items button:hover{background:var(--mc-chip)}
+.content-menu-items button:disabled{opacity:.5;cursor:default}
+.content-dialog :focus-visible,.content-action-menu :focus-visible{outline:2px solid var(--mc-user);outline-offset:2px}
+@media(max-width:720px){.content-backdrop{padding:12px}.content-dialog{max-height:92vh;border-radius:16px}.content-dialog-header,.content-dialog-body{padding:16px}.content-dialog-header h2{font-size:18px}}
