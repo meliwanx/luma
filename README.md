@@ -2,11 +2,13 @@
 
 [简体中文](README.zh-CN.md)
 
+**License: free personal noncommercial use; commercial use requires prior written authorization from [meliwanx](https://github.com/meliwanx).** This is a source-available project. See [License](#license).
+
 Luma is a self-hosted AI assistant with several clients. You talk to it from the web, a desktop app (macOS / Windows) or an iPhone. It plans with an LLM, calls tools, and runs code or drives a browser inside a per-user cloud sandbox, then returns only the final result.
 
 All reasoning and execution happen on your server and in the sandbox. Every client shows the same account, so switching devices or closing a client does not interrupt a running task.
 
-> Status: early open-source release, published as source code only. There are no prebuilt Docker images, desktop installers or app-store builds; you build everything from this repository. The server and the web and desktop clients are usable. The iOS client builds from source.
+> Status: early source-available release, published as source code only. There are no prebuilt Docker images, desktop installers or app-store builds; you build everything from this repository. The server and the web and desktop clients are usable. The iOS client builds from source.
 
 ## What it does
 
@@ -156,6 +158,16 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 Issues and pull requests are welcome. Please include tests for behaviour changes and keep secrets out of commits. Before submitting, run the backend tests and `npm run build` in `apps/web`.
 
+Contributors retain their copyrights. Before merging an external contribution, the maintainer must obtain explicit permission to distribute it under the project license and, where needed, grant separate commercial licenses. Submission alone is not a copyright transfer or an automatic commercial-relicensing grant.
+
 ## License
 
-[MIT](LICENSE)
+[Luma Personal Noncommercial License 1.0](LICENSE) · [中文协议](LICENSE.zh-CN.md)
+
+- **Free:** an individual's own personal noncommercial self-hosting, learning, modification and sharing without charge, with the license and copyright notices retained.
+- **Prior written authorization required:** company/internal business use, work for an employer or client, paid professional work, commercial product integration, hosted/SaaS/API services for a commercial purpose, and paid implementation or support. Not charging end users does not by itself make a use noncommercial.
+- **Commercial requests:** contact [meliwanx](https://github.com/meliwanx) through [a licensing issue](https://github.com/meliwanx/luma/issues/new). A request or silence is not authorization; the written agreement sets scope, fees and responsibility terms.
+
+This commercial-use restriction means the project is **source-available**, not [OSI open source](https://opensource.org/osd). Third-party dependencies keep their own licenses.
+
+Earlier MIT-licensed releases remain usable under their original terms; this change does not retroactively revoke those permissions. The historical license and applicable commits are preserved in [licenses/LEGACY-MIT.txt](licenses/LEGACY-MIT.txt). The new license applies to versions and contributions released with it, subject to independently granted rights.

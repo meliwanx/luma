@@ -1,21 +1,108 @@
-MIT License
+Luma Personal Noncommercial License 1.0
+Effective date: 2026-10-07
 
-Copyright (c) 2026 Luma contributors
+Copyright (c) 2026 Luma contributors. All rights reserved except as granted below.
+Project owner and commercial licensing contact: liwanx, GitHub account meliwanx
+https://github.com/meliwanx
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Scope
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+This license covers the original Luma software, associated documentation and
+modifications distributed with this license (the "Software"), to the extent that
+the project owner owns or is authorized to license the relevant rights. Material
+with a separate license, and rights granted under earlier licenses, are subject
+to section 5. This is a source-available license, not an OSI-approved open-source
+license.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. Free personal noncommercial use
+
+An individual may, without paying a license fee or requesting permission, use,
+copy, run, study and modify the Software for that individual's own personal
+noncommercial purposes, including personal self-hosting, learning and hobby
+projects. The individual may also share original or modified copies without
+charge for personal noncommercial use, subject to section 3.
+
+These permissions do not extend to business activities performed by an
+individual, including freelance work, work for an employer or work for a client.
+
+3. Conditions of permitted use and sharing
+
+Keep this license and applicable copyright notices with copies or substantial
+portions of the Software. Clearly identify modifications when sharing a modified
+copy. Sharing, changing the name of the Software, or integrating it into another
+project does not remove the commercial-use restriction on material covered by
+this license. Do not claim the project owner's endorsement.
+
+You may not offer broader rights to the covered Software than this license
+grants. Recipients may exercise the personal noncommercial permissions directly
+under this license. Separately authored material may retain its own license.
+
+4. Commercial use requires prior written authorization
+
+Except for rights independently available under section 5, no commercial use is
+permitted without prior, express written authorization from meliwanx, the
+project owner, for the rights the owner controls.
+
+Commercial use includes, without limitation:
+- using or deploying the Software for a company's or other organization's
+  business operations, including internal employee tools;
+- using it to perform paid professional work or work for an employer or client;
+- selling, licensing, renting, bundling or integrating it into a commercial
+  product, service or customer deliverable;
+- operating a hosted, SaaS, API or managed service for a commercial purpose;
+- paid consulting, implementation or support involving the Software.
+
+A commercial purpose can exist even when users are not charged directly.
+Personal installation, a private deployment, a fork, a renamed version, or a
+version offered free of charge does not by itself qualify as noncommercial.
+
+Request authorization through https://github.com/meliwanx/luma/issues/new or
+the contact information published by the project owner. A request, an unanswered
+request, or a public repository does not constitute authorization. The written
+commercial agreement must specify the authorized use and any applicable scope,
+fees, attribution, support, warranty and responsibility terms. Permission is
+limited to that agreement; no automatic commercial license is granted here.
+
+5. Earlier versions, third-party material and contributions
+
+Earlier Luma versions published under the MIT license retain the permissions
+already granted under that license, including for content covered by that grant.
+This license does not retroactively revoke or narrow those permissions. The
+historical MIT notice and its applicable commits are recorded in
+licenses/LEGACY-MIT.txt. This license governs versions and new contributions
+released with it, subject to any independently granted rights.
+
+Third-party dependencies, code and assets retain their respective licenses.
+Their notices must be preserved. This license does not impose the Luma
+commercial-use restriction on independently licensed third-party material.
+
+Contributors retain their copyrights. This license does not transfer copyright
+or automatically give the project owner permission to relicense someone else's
+contribution commercially. Such permission must be obtained separately before
+accepting contributions that will be included in commercial licenses.
+
+6. Warranty and liability
+
+To the extent permitted by applicable law, the Software is provided "AS IS",
+without express or implied warranties, including merchantability, fitness for a
+particular purpose and noninfringement. The copyright holders are not liable for
+claims or damages arising from use of the Software, except where applicable law
+does not allow that limitation or a separate written agreement provides otherwise.
+
+These disclaimers do not grant commercial rights or excuse unauthorized
+commercial use. A separate commercial agreement may set different warranty and
+responsibility terms.
+
+7. Breach and reserved rights
+
+Permissions under this license terminate if you violate its conditions. Stop
+uses that rely on those permissions. The copyright holders reserve remedies
+available under applicable law for unauthorized use. Rights under independent
+licenses described in section 5 are unaffected. All other rights, including
+trademark and endorsement rights, are reserved.
+
+8. Language
+
+LICENSE.zh-CN.md is a Chinese translation for convenience. If the two texts
+conflict, this English text controls. A separate written commercial agreement
+controls the rights it expressly grants.

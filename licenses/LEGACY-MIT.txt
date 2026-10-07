@@ -1,0 +1,37 @@
+Historical MIT license notice — earlier Luma releases only
+
+This notice records the license of the following previously published commits:
+- a817aa35f5607313679577e2aa88af6ddf73e64c
+- 020e26a3c677dc5a5429ae2ae14fac36df4ec386
+- 3bf484428da28542bad0c585c37812aeeb29ae3f
+
+Those releases and content covered by their MIT grants retain those permissions.
+This historical notice is not a second, unrestricted license for new contributions
+first released under the root LICENSE. Third-party rights remain independent.
+
+原先以上述提交按 MIT 发布的版本及其授权覆盖的内容，保留原授权；
+本历史记录不为首次按根目录新 LICENSE 发布的新增贡献提供额外 MIT 许可。
+
+Original notice follows:
+
+MIT License
+
+Copyright (c) 2026 Luma contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
