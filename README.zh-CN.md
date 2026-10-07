@@ -139,6 +139,7 @@ AGENT_RUNTIME_AIO_TOOL=...              # 或 AGENT_RUNTIME_CODE_TOOL / AGENT_RU
 - 推送通知需要你自己的 APNs 或 FCM 凭据。
 - 界面文字以中文为主。
 - 不能操作用户自己的电脑，所有操作都在云端沙箱里进行。
+- 模型客户端走 OpenAI Chat Completions 协议（含流式输出和工具调用），这部分由针对模拟服务的测试覆盖。发布前的 Docker 验收确认了 `LLM_*` 配置能被正确读取，并确认 `LUMA_PROVIDER=local` 在没有模型服务时可以正常使用；但没有对任何具体厂商做真实推理测试，你选用的模型服务是否兼容，请自行验证。
 
 ## 开发
 

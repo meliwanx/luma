@@ -142,6 +142,7 @@ Choose a region whose network can reach the sites your users need. Commands from
 - Push notifications require your own APNs or FCM credentials.
 - The interface text is mostly in Chinese.
 - Luma cannot operate the user's own computer. All actions run in the cloud sandbox.
+- The model client speaks the OpenAI chat completions protocol, including streaming and tool calls, and is covered by tests against a mock server. The Docker release check confirmed that the `LLM_*` settings are picked up and that `LUMA_PROVIDER=local` works without a provider. It did not run real inference against any particular vendor, so verify your provider's compatibility yourself.
 
 ## Development
 

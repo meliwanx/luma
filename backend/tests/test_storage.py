@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -11,6 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import httpx
+import fastapi.routing
 from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.testclient import TestClient
 
@@ -258,6 +260,18 @@ class UploadSizeLimitMiddlewareTests(unittest.TestCase):
         self.assertEqual(response.json(), {"size": 5})
         self.assertEqual(self.calls, [b"hello"])
 
+    def test_upload_larger_than_staging_memory_is_unchanged(self):
+        payload = b"x" * (1024 * 1024 + 1)
+        with patch.dict(os.environ, {"ASSISTANT_MAX_UPLOAD_BYTES": str(len(payload))}, clear=False):
+            with TestClient(self.app) as client:
+                response = client.post(
+                    "/api/v1/files",
+                    files={"upload": ("large.bin", payload, "application/octet-stream")},
+                )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"size": len(payload)})
+        self.assertEqual(self.calls, [payload])
+
 
 class UploadLimitTests(unittest.TestCase):
     @classmethod
@@ -290,15 +304,44 @@ class UploadLimitTests(unittest.TestCase):
 
     @staticmethod
     def _upload_route():
-        for route in main.app.routes:
+        # FastAPI 0.142 keeps included routers as wrappers. Their effective
+        # contexts contain the dependency tree actually used for requests.
+        iter_contexts = getattr(fastapi.routing, "iter_route_contexts", None)
+        routes = iter_contexts(main.app.routes) if iter_contexts is not None else main.app.routes
+        for route in routes:
             if getattr(route, "path", None) == "/api/v1/files" and "POST" in getattr(route, "methods", set()):
                 return route
         raise AssertionError("upload route not found")
 
+    @staticmethod
+    def _asgi_post(messages, headers):
+        sent = []
+        received = []
+        pending = iter(messages)
+
+        async def receive():
+            message = next(pending)
+            received.append(message)
+            return message
+
+        async def send(message):
+            sent.append(message)
+
+        scope = {
+            "type": "http", "asgi": {"version": "3.0", "spec_version": "2.4"},
+            "http_version": "1.1", "method": "POST", "scheme": "http",
+            "path": "/api/v1/files", "raw_path": b"/api/v1/files",
+            "root_path": "", "query_string": b"", "headers": headers,
+            "server": ("testserver", 80), "client": ("testclient", 123),
+        }
+        asyncio.run(main.app(scope, receive, send))
+        return sent, received
+
     def test_content_length_rejected_before_upload_handler(self):
         body = b"x" * (64 + 1024 * 1024 + 1)
         route = self._upload_route()
-        with patch.object(route.dependant, "call", side_effect=AssertionError("upload handler was called")):
+        with patch.object(route.dependant, "call", side_effect=AssertionError("upload handler was called")) as handler, \
+                patch("starlette.requests.MultiPartParser", side_effect=AssertionError("multipart parser was called")) as parser:
             response = self.client.post(
                 "/api/v1/files",
                 content=body,
@@ -306,6 +349,8 @@ class UploadLimitTests(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 413)
         self.assertEqual(response.json(), {"detail": {"code": "file_too_large", "max_bytes": 64}})
+        handler.assert_not_called()
+        parser.assert_not_called()
 
     def test_chunked_body_rejected_before_multipart_parser(self):
         def body():
@@ -313,7 +358,8 @@ class UploadLimitTests(unittest.TestCase):
             yield b"x" * 65
 
         route = self._upload_route()
-        with patch.object(route.dependant, "call", side_effect=AssertionError("upload handler was called")):
+        with patch.object(route.dependant, "call", side_effect=AssertionError("upload handler was called")) as handler, \
+                patch("starlette.requests.MultiPartParser", side_effect=AssertionError("multipart parser was called")) as parser:
             response = self.client.post(
                 "/api/v1/files",
                 content=body(),
@@ -321,6 +367,64 @@ class UploadLimitTests(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 413)
         self.assertEqual(response.json(), {"detail": {"code": "file_too_large", "max_bytes": 64}})
+        handler.assert_not_called()
+        parser.assert_not_called()
+
+    def test_content_length_rejected_without_reading_body(self):
+        route = self._upload_route()
+        with patch.object(route.dependant, "call", side_effect=AssertionError("upload handler was called")) as handler, \
+                patch("starlette.requests.MultiPartParser", side_effect=AssertionError("multipart parser was called")) as parser:
+            sent, received = self._asgi_post([], [
+                (b"content-type", b"multipart/form-data; boundary=test"),
+                (b"content-length", str(64 + 1024 * 1024 + 1).encode("ascii")),
+            ])
+        self.assertEqual(sent[0]["status"], 413)
+        self.assertEqual(received, [])
+        handler.assert_not_called()
+        parser.assert_not_called()
+
+    def test_chunked_asgi_messages_rejected_before_multipart_parser(self):
+        boundary, prefix, payload, suffix = UploadSizeLimitMiddlewareTests._multipart(b"x" * 65)
+        messages = [
+            {"type": "http.request", "body": prefix, "more_body": True},
+            {"type": "http.request", "body": b"x" * (1024 * 1024 + 64 - len(prefix)), "more_body": True},
+            {"type": "http.request", "body": payload, "more_body": True},
+            {"type": "http.request", "body": suffix, "more_body": False},
+        ]
+        route = self._upload_route()
+        with patch.object(route.dependant, "call", side_effect=AssertionError("upload handler was called")) as handler, \
+                patch("starlette.requests.MultiPartParser", side_effect=AssertionError("multipart parser was called")) as parser:
+            sent, received = self._asgi_post(messages, [
+                (b"content-type", b"multipart/form-data; boundary=" + boundary),
+                (b"transfer-encoding", b"chunked"),
+            ])
+        self.assertEqual(sent[0]["status"], 413)
+        self.assertEqual(json.loads(sent[1]["body"]), {"detail": {"code": "file_too_large", "max_bytes": 64}})
+        self.assertEqual(len(received), 3)
+        handler.assert_not_called()
+        parser.assert_not_called()
+
+    def test_real_oversized_multipart_upload_returns_413(self):
+        response = self.client.post(
+            "/api/v1/files",
+            files={"upload": ("large.bin", b"x" * (64 + 1024 * 1024 + 1), "application/octet-stream")},
+        )
+        self.assertEqual(response.status_code, 413)
+        self.assertEqual(response.json(), {"detail": {"code": "file_too_large", "max_bytes": 64}})
+
+    def test_incomplete_upload_disconnect_never_enters_multipart_parser(self):
+        boundary, prefix, _, _ = UploadSizeLimitMiddlewareTests._multipart(b"hello")
+        route = self._upload_route()
+        with patch.object(route.dependant, "call", side_effect=AssertionError("upload handler was called")) as handler, \
+                patch("starlette.requests.MultiPartParser", side_effect=AssertionError("multipart parser was called")) as parser:
+            sent, received = self._asgi_post([
+                {"type": "http.request", "body": prefix, "more_body": True},
+                {"type": "http.disconnect"},
+            ], [(b"content-type", b"multipart/form-data; boundary=" + boundary)])
+        self.assertEqual(sent, [])
+        self.assertEqual(len(received), 2)
+        handler.assert_not_called()
+        parser.assert_not_called()
 
     def test_normal_upload_is_unchanged(self):
         response = self.client.post(

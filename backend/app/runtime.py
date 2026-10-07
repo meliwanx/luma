@@ -920,7 +920,7 @@ def _allowed_tools(payload: dict[str, Any]) -> list[str]:
 def _execute_agent_run(payload: dict[str, Any], user_id: str = "local") -> dict[str, Any]:
     prompt = _payload_text(payload, "prompt", max_length=20_000)
     # ``engine`` remains accepted in persisted payloads for rolling upgrades,
-    # but the only execution engine is the shared agent loop.
+    # but model-backed runs always use the shared agent loop.
     engine = str(payload.get("engine", "auto") or "auto").strip().lower()
     if engine != "auto":
         engine = "auto"
@@ -928,6 +928,26 @@ def _execute_agent_run(payload: dict[str, Any], user_id: str = "local") -> dict[
     if session_id is not None and (not isinstance(session_id, str) or not session_id.strip()):
         raise ValueError("session_id must be a non-empty string")
     allowed = _allowed_tools({**payload, "user_id": user_id})
+
+    from .provider import local_mode
+
+    if local_mode():
+        # Local mode is a deterministic preview, as in chat and background
+        # generators. A prompt cannot plan tool calls without a model, and
+        # credentials in .env must not silently switch this run online.
+        from .services.chat import local_reply
+
+        reply = local_reply(prompt)
+        return {
+            "prompt": prompt,
+            "engine": "auto",
+            "allowed_tools": allowed,
+            "provider": "local",
+            "status": "completed",
+            "reply": reply,
+            "message": reply,
+            "tool_calls": [],
+        }
 
     # Import lazily so runtime queue maintenance remains usable when an
     # optional provider dependency is unavailable during process startup.
@@ -1049,37 +1069,6 @@ def _execute_agent_run(payload: dict[str, Any], user_id: str = "local") -> dict[
         tool_name = first_call.get("tool") or first_call.get("name")
         if tool_name:
             result.setdefault("tool", str(tool_name))
-    if hasattr(execute_tool, "mock_calls") and len(allowed) == 1 and result.get("tool"):
-        result["tool"] = {
-            "luma.briefing": "briefing",
-            "luma.tasks.list": "list_tasks",
-            "luma.memory.search": "list_memories",
-            "luma.files.list": "files",
-            "luma.files.read": "files",
-            "luma.tasks.create": "create_task",
-            "luma.memory.create": "create_memory",
-        }.get(str(result["tool"]), str(result["tool"]))
-    # A narrow compatibility seam keeps older unit tests that replace the
-    # legacy executor with a mock reviewable during the rolling migration. It
-    # is never active for the real executor and does not route prompts.
-    if "tool" not in result and len(allowed) == 1 and hasattr(execute_tool, "mock_calls"):
-        legacy_name = allowed[0]
-        legacy_name = {
-            "luma.briefing": "briefing",
-            "luma.tasks.list": "list_tasks",
-            "luma.memory.search": "list_memories",
-            "luma.files.list": "files",
-            "luma.files.read": "files",
-            "luma.tasks.create": "create_task",
-            "luma.memory.create": "create_memory",
-        }.get(legacy_name, legacy_name)
-        try:
-            legacy_result = execute_tool(legacy_name, {}, user_id)
-            result["tool"] = legacy_name
-            result["result"] = legacy_result
-            result["message"] = "已读取文件。" if legacy_name == "files" else "已完成工具：%s。" % legacy_name
-        except Exception:
-            pass
     result.setdefault("message", result.get("reply", "Agent 运行完成"))
     return result
 

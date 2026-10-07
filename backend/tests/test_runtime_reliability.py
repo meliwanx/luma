@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 # isolated schema in luma_test and configures the DB facade for this process.
 from tests.pg import reset_tables
 
-from app import agent_runtime, runtime
+from app import agent_runtime, provider, runtime
 from app.db import get_connection
 
 
@@ -60,13 +60,47 @@ class RuntimePolicyTests(unittest.TestCase):
         self.assertTrue(runtime._job_is_idempotent({"type": "agent_run", "payload": {"engine": "legacy"}}))
 
     def test_agent_result_message_names_actual_tool(self):
-        with patch.object(runtime, "execute_tool", return_value={"files": []}):
+        from app.agent.loop import AgentOutcome
+
+        outcome = AgentOutcome(
+            reply="已读取文件。",
+            tool_calls=[{"tool": "luma.files.list", "status": "ok"}],
+        )
+        with patch.dict(os.environ, {"LUMA_PROVIDER": "llm"}, clear=False), patch(
+            "app.agent.loop.run_agent", new_callable=AsyncMock, return_value=outcome
+        ) as run_agent, patch.object(
+            provider, "get_config", side_effect=AssertionError("The test must not load model credentials")
+        ):
             result = runtime._execute_agent_run(
                 {"prompt": "列出文件", "allowed_tools": ["files"]}, user_id="u"
             )
-        self.assertEqual(result["tool"], "files")
+        run_agent.assert_awaited_once()
+        context, messages = run_agent.call_args.args
+        self.assertEqual(context.allowed_tools, ["luma.files.list"])
+        self.assertEqual(messages, [{"role": "user", "content": "列出文件"}])
+        self.assertEqual(result["tool"], "luma.files.list")
         self.assertIn("文件", result["message"])
         self.assertNotEqual(result["message"], "已保存记忆。")
+
+    def test_local_agent_run_does_not_load_credentials_or_plan_tools(self):
+        from app.services.chat import local_reply
+
+        with patch.dict(
+            os.environ, {"LUMA_PROVIDER": "local", "LLM_API_KEY": "", "MIMO_API_KEY": ""}, clear=False
+        ), patch("app.agent.loop.run_agent", new_callable=AsyncMock) as run_agent, patch.object(
+            provider, "get_config", side_effect=AssertionError("Local mode must not load model credentials")
+        ) as get_config, patch.object(runtime, "execute_tool") as execute_tool:
+            result = runtime.execute_job(
+                "agent_run", {"prompt": "列出文件", "allowed_tools": ["files"]}, user_id="u"
+            )
+        run_agent.assert_not_called()
+        get_config.assert_not_called()
+        execute_tool.assert_not_called()
+        self.assertEqual(result["provider"], "local")
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["message"], local_reply("列出文件"))
+        self.assertEqual(result["tool_calls"], [])
+        self.assertNotIn("tool", result)
 
 
 class RuntimeProviderSafetyTests(unittest.TestCase):

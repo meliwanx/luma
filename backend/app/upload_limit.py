@@ -10,29 +10,17 @@ leaving every other route (including streaming responses) untouched.
 from __future__ import annotations
 
 import json
+import tempfile
 from typing import Any, Awaitable, Callable, Dict, Optional
+
+import anyio
+from starlette.concurrency import run_in_threadpool
 
 from .services.files import max_upload_size
 
 
 Receive = Callable[[], Awaitable[Dict[str, Any]]]
 Send = Callable[[Dict[str, Any]], Awaitable[None]]
-
-
-class _UploadTooLarge(BaseException):
-    """Internal signal used to unwind the downstream app on body overflow."""
-
-
-def _contains_upload_too_large(error: BaseException) -> bool:
-    """Find the signal when AnyIO wraps it in a BaseExceptionGroup."""
-
-    if isinstance(error, _UploadTooLarge):
-        return True
-    return any(
-        _contains_upload_too_large(child)
-        for child in getattr(error, "exceptions", ())
-        if isinstance(child, BaseException)
-    )
 
 
 class UploadSizeLimitMiddleware:
@@ -45,6 +33,7 @@ class UploadSizeLimitMiddleware:
     """
 
     _MULTIPART_OVERHEAD = 1024 * 1024
+    _REPLAY_CHUNK_SIZE = 64 * 1024
 
     def __init__(self, app: Callable[..., Awaitable[None]]) -> None:
         self.app = app
@@ -95,37 +84,52 @@ class UploadSizeLimitMiddleware:
             await self._reject(send, maximum)
             return
 
-        received = 0
-        response_started = False
-
-        async def limited_receive() -> Dict[str, Any]:
-            nonlocal received
-            message = await receive()
-            if message.get("type") != "http.request":
-                return message
-            body = message.get("body", b"") or b""
-            received += len(body)
-            if received > request_limit:
-                raise _UploadTooLarge()
-            return message
-
-        async def tracked_send(message: Dict[str, Any]) -> None:
-            nonlocal response_started
-            if message.get("type") == "http.response.start":
-                response_started = True
-            await send(message)
-
+        # A receive wrapper alone lets the multipart parser process earlier
+        # chunks before a later chunk exceeds the limit. Stage the bounded raw
+        # body first, spilling to disk above one MiB, and only enter the app
+        # once the entire request has passed the size check.
+        staged = tempfile.SpooledTemporaryFile(max_size=self._MULTIPART_OVERHEAD, mode="w+b")
         try:
-            await self.app(scope, limited_receive, tracked_send)
-        except BaseException as error:
-            if not _contains_upload_too_large(error):
-                raise
-            if response_started:
-                # A response has already begun; propagating the exception
-                # causes the ASGI server to terminate the connection instead
-                # of attempting a second response.
-                raise
-            await self._reject(send, maximum)
+            received = 0
+            rolled_to_disk = False
+            while True:
+                message = await receive()
+                if message.get("type") == "http.disconnect":
+                    return
+                body = message.get("body", b"") or b""
+                received += len(body)
+                if received > request_limit:
+                    await self._reject(send, maximum)
+                    return
+                if body:
+                    if received > self._MULTIPART_OVERHEAD and not rolled_to_disk:
+                        # Rollover before writing: a single large ASGI message
+                        # must not first be copied into the in-memory spool.
+                        await run_in_threadpool(staged.rollover)
+                        rolled_to_disk = True
+                    await run_in_threadpool(staged.write, body)
+                if not message.get("more_body", False):
+                    break
+
+            await run_in_threadpool(staged.seek, 0)
+            remaining = received
+            replay_complete = False
+
+            async def replay_receive() -> Dict[str, Any]:
+                nonlocal remaining, replay_complete
+                if replay_complete:
+                    # BaseHTTPMiddleware may still listen for disconnects
+                    # after consuming the final replayed request message.
+                    return await receive()
+                body = await run_in_threadpool(staged.read, self._REPLAY_CHUNK_SIZE)
+                remaining -= len(body)
+                replay_complete = remaining == 0
+                return {"type": "http.request", "body": body, "more_body": not replay_complete}
+
+            await self.app(scope, replay_receive, send)
+        finally:
+            with anyio.CancelScope(shield=True):
+                await run_in_threadpool(staged.close)
 
 
 __all__ = ["UploadSizeLimitMiddleware"]

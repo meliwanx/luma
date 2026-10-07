@@ -288,7 +288,7 @@ class BrowserBackgroundApprovalTests(unittest.TestCase):
 
     def invoke(self, fake_agent, *, fingerprint="original-element", payment=True):
         inspect = AsyncMock(return_value={"submits": True, "always_confirm": payment, "fingerprint": fingerprint})
-        with patch("app.agent.loop.run_agent", fake_agent), patch("app.agent.tools.registry_for", return_value=([self.tool], [])), patch("app.services.browser.inspect_click", inspect), patch("app.services.permissions.permission_mode", return_value="ask"), patch("app.agent.policy._audit"):
+        with patch.dict("os.environ", {"LUMA_PROVIDER": "llm"}), patch("app.agent.loop.run_agent", fake_agent), patch("app.agent.tools.registry_for", return_value=([self.tool], [])), patch("app.services.browser.inspect_click", inspect), patch("app.services.permissions.permission_mode", return_value="ask"), patch("app.agent.policy._audit"):
             return runtime._execute_agent_run(self.payload, self.user_id)
 
     def status(self, approval_id):
