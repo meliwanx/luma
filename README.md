@@ -1,4 +1,8 @@
-# Luma
+<p align="center">
+  <img src="docs/assets/luma-logo.svg" width="200" height="200" alt="Luma logo" />
+</p>
+
+<h1 align="center">Luma</h1>
 
 [简体中文](README.zh-CN.md)
 
