@@ -560,7 +560,8 @@ def describe_for_model(
 
 
 def create_confirm_widget(user_id: str, session_id: str, message_id: str, *, connector_id: str,
-                          connector_name: str, tool: str, title: str, arguments: dict[str, Any]) -> dict[str, Any]:
+                          connector_name: str, tool: str, title: str, arguments: dict[str, Any],
+                          capability_id: str = "", capability_version: str = "") -> dict[str, Any]:
     details = []
     for key, value in list(arguments.items())[:10]:
         shown = str(value)[:200]
@@ -569,6 +570,8 @@ def create_confirm_widget(user_id: str, session_id: str, message_id: str, *, con
         details.append({"label": str(key)[:80], "value": shown})
     spec = {"type": "confirm", "title": "需要你确认", "body": f"Luma 想调用「{connector_name}」的「{title}」，这个操作可能会修改数据。", "details": details, "confirm_label": "确认执行", "cancel_label": "取消"}
     state = {"status": "pending", "_pending": {"connector_id": connector_id, "tool": tool, "arguments": arguments, "connector_name": connector_name, "tool_title": title}}
+    if capability_id:
+        state["_pending"].update(capability_id=capability_id, capability_version=capability_version)
     widget_id = "wgt_" + uuid.uuid4().hex
     timestamp = datetime.now(timezone.utc).isoformat()
     with get_connection() as conn:
@@ -610,7 +613,16 @@ def _confirm_event(user_id: str, row: Any, action: str) -> tuple[dict[str, Any],
 
         pending_tool = str(pending.get("tool") or "")
         pending_connector_id = str(pending.get("connector_id") or "")
-        tools, _ = registry_for(user_id, mode="interactive")
+        ctx = AgentContext(user_id=user_id, session_id=row["session_id"], assistant_message_id=row["message_id"], mode="interactive")
+        if pending.get("capability_id"):
+            from .services import capabilities
+            capability_id = str(pending["capability_id"])
+            version = str(pending.get("capability_version") or "")
+            capabilities.validate(user_id, capability_id, version)
+            ctx.capability_bundle = capabilities.load(user_id, [capability_id])
+            tools, _ = registry_for(user_id, mode="interactive", ctx=ctx)
+        else:
+            tools, _ = registry_for(user_id, mode="interactive")
         target = None
         for item in tools:
             metadata = item.get("metadata", {}) if isinstance(item, dict) else getattr(item, "metadata", {})
@@ -632,9 +644,10 @@ def _confirm_event(user_id: str, row: Any, action: str) -> tuple[dict[str, Any],
                 break
         if target is None:
             raise mcp.MCPError("连接器工具不存在")
+        if pending.get("capability_id") and target.metadata.get("version") != pending.get("capability_version"):
+            raise mcp.MCPError("能力版本已变化，请重新加载并确认本次操作")
         if pending_tool in {"browser.click", "browser.submit"} and not pending.get("browser_fingerprint"):
             raise mcp.MCPError("浏览器确认已过期，请重新发起操作")
-        ctx = AgentContext(user_id=user_id, session_id=row["session_id"], assistant_message_id=row["message_id"], mode="interactive")
         ctx.confirmed = True  # type: ignore[attr-defined]
         if pending_tool in {"browser.click", "browser.submit"} and pending.get("browser_fingerprint"):
             ctx.browser_expected_fingerprint = str(pending["browser_fingerprint"])  # type: ignore[attr-defined]
@@ -652,6 +665,9 @@ def _confirm_event(user_id: str, row: Any, action: str) -> tuple[dict[str, Any],
                 value = target.executor(ctx, arguments)
                 return await value if inspect.isawaitable(value) else value
             finally:
+                for connector_id, client in list(ctx.mcp_clients.items()):
+                    ctx.mcp_clients.pop(connector_id, None)
+                    await asyncio.get_running_loop().run_in_executor(None, client.close)
                 if pending_tool.startswith("browser."):
                     # The synchronous widget endpoint owns a temporary event
                     # loop. Inspect and execute on that same loop, then close
@@ -665,7 +681,8 @@ def _confirm_event(user_id: str, row: Any, action: str) -> tuple[dict[str, Any],
         result_data = getattr(result_obj, "data", None)
         if isinstance(result_data, dict) and result_data.get("kind") == "browser_live":
             result = BROWSER_LIVE_TEXT
-        state.update(status="done", _result=tool_result_text(result))
+        status = str(getattr(result_obj, "status", "ok"))
+        state.update(status="done" if status == "ok" else "failed", _result=tool_result_text(result))
     except Exception as exc:
         state.update(status="failed", _result=tool_result_text(mcp.safe_error(exc)))
     with get_connection() as conn:

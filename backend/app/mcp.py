@@ -226,6 +226,8 @@ def _safe_error(exc: BaseException) -> str:
 
 
 _MAX_RESPONSE = 2 * 1024 * 1024
+MCP_CATALOG_MAX_TOOLS = 2048
+MCP_CATALOG_MAX_PAGES = 32
 
 
 class MCPClient:
@@ -325,7 +327,8 @@ class MCPClient:
         tools: list[dict[str, Any]] = []
         cursor: Any = None
         server: dict[str, Any] = dict(self.server_info)
-        for _ in range(5):
+        seen_cursors: set[str] = set()
+        for _ in range(MCP_CATALOG_MAX_PAGES):
             params = {"cursor": cursor} if cursor else {}
             result = self._post("tools/list", params)
             if not isinstance(result, dict):
@@ -336,12 +339,18 @@ class MCPClient:
             if not isinstance(page, list):
                 raise MCPError("这不是有效的 MCP 服务")
             tools.extend(item for item in page if isinstance(item, dict))
+            if len(tools) > MCP_CATALOG_MAX_TOOLS:
+                raise MCPError("MCP 工具列表过长")
             cursor = result.get("nextCursor")
             if not cursor:
                 break
+            cursor_key = json.dumps(cursor, sort_keys=True)
+            if cursor_key in seen_cursors:
+                raise MCPError("MCP 工具分页游标重复")
+            seen_cursors.add(cursor_key)
         if cursor:
             raise MCPError("MCP 工具列表过长")
-        return tools[:64], server
+        return tools, server
 
     def call_tool(self, name: str, arguments: dict[str, Any]) -> str | dict[str, Any]:
         result = self._post("tools/call", {"name": name, "arguments": arguments}, timeout=30)
@@ -349,7 +358,7 @@ class MCPClient:
             # Redact before bounding text so truncation cannot expose a
             # partial credential echoed by the remote tool.
             return {"isError": True, "text": result_to_text(redact_header_values(result, self.headers))}
-        return result_to_text(result)
+        return result_to_text(redact_header_values(result, self.headers))
 
     def close(self) -> None:
         try:
@@ -423,7 +432,7 @@ def tool_risk(info: dict[str, Any]) -> str:
 
 def normalize_tools(raw_tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
     result = []
-    for raw in raw_tools[:64]:
+    for raw in raw_tools[:MCP_CATALOG_MAX_TOOLS]:
         name = raw.get("name")
         if not isinstance(name, str) or not name:
             continue

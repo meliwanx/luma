@@ -117,6 +117,7 @@ def insert_message(session_id: str, payload: MessageCreate, user_id: str = "loca
         with get_connection() as conn:
             require_session(conn, session_id, user_id)
         metadata.pop("mcp_intake", None)
+        metadata.pop("capability_state", None)
         try:
             content = protect_message(content, user_id, session_id, metadata)
         except SecretConfigError:
@@ -341,7 +342,7 @@ def persist_assistant_message(
         conn.execute("UPDATE sessions SET updated_at = ? WHERE id = ? AND user_id = ?", (created_at, session_id, user_id))
     # Extraction is detached so provider latency or a parse failure never
     # delays the streamed reply.  The scheduler also deduplicates per message.
-    if status == "complete" and not metadata.get("incomplete") and not metadata.get("error"):
+    if status == "complete" and not metadata.get("incomplete") and not metadata.get("error") and not metadata.get("memory_extraction_excluded"):
         schedule_memory_extraction(user_id, session_id, assistant_id)
     return assistant
 
@@ -561,9 +562,13 @@ async def stream_message(request: Request, session_id: str, payload: MessageCrea
     first_token_ms: Optional[int] = None
     last_progress = 0.0
     usage_totals = UsageTotals(seed_metadata.get("usage") if continuation else None)
+    active_agent_ctx: Any = None
 
     def run_metrics(reply: str) -> dict[str, Any]:
+        from ..agent.tools import capability_state
         return {
+            "capability_state": capability_state(active_agent_ctx) if active_agent_ctx is not None else seed_metadata.get("capability_state", {"tools": [], "skills": []}),
+            "memory_extraction_excluded": bool(getattr(active_agent_ctx, "capability_sensitive", False) or seed_metadata.get("memory_extraction_excluded")),
             "usage": usage_totals.snapshot(),
             "model": configured_model,
             "first_token_ms": first_token_ms,
@@ -589,12 +594,14 @@ async def stream_message(request: Request, session_id: str, payload: MessageCrea
             content=reply,
             created_at=created_at,
             metadata={"provider": provider, "tool_calls": tool_calls, "generation_epoch": generation_epoch,
-                      "user_message_id": user_message.id, "usage": usage_totals.snapshot()},
+                      "user_message_id": user_message.id, "usage": usage_totals.snapshot(),
+                      "capability_state": run_metrics(reply)["capability_state"],
+                      "memory_extraction_excluded": run_metrics(reply)["memory_extraction_excluded"]},
             user_id=user_id,
         )
 
     async def stream_events() -> Iterable[str]:
-        nonlocal first_token_ms
+        nonlocal first_token_ms, active_agent_ctx
         yield sse_event(
             "start",
             {
@@ -655,11 +662,14 @@ async def stream_message(request: Request, session_id: str, payload: MessageCrea
                     if await generation.manager.is_cancelled(assistant_id):
                         raise asyncio.CancelledError()
             else:
-                definitions, tool_map, _ = await run_in_threadpool(_mcp_catalog, user_id)
+                def has_mcp_connectors() -> bool:
+                    with get_connection() as conn:
+                        return conn.execute("SELECT 1 FROM connectors WHERE user_id = ? AND kind = 'mcp' AND enabled = 1 LIMIT 1", (user_id,)).fetchone() is not None
+                has_mcp = await run_in_threadpool(has_mcp_connectors)
                 # Local mode is deterministic and must not be changed by a
                 # test/client patch of the network provider symbols.  When
                 # MCP tools are present, the existing tool loop still runs.
-                offline_local = provider_local_mode() and not definitions
+                offline_local = provider_local_mode() and not has_mcp
                 # Online conversations expose builtin tools even before the
                 # first MCP connector exists. Preserve the text-only seam for
                 # local mode and older embedding tests replacing stream().
@@ -668,7 +678,7 @@ async def stream_message(request: Request, session_id: str, payload: MessageCrea
                     and provider_stream_chat is _DEFAULT_PROVIDER_STREAM_CHAT
                     and provider_astream_chat is _DEFAULT_PROVIDER_ASTREAM_CHAT
                 )
-                if not definitions and (offline_local or text_adapter):
+                if not has_mcp and (offline_local or text_adapter):
                     context = await run_in_threadpool(
                         conversation_messages,
                         session_id,
@@ -695,6 +705,7 @@ async def stream_message(request: Request, session_id: str, payload: MessageCrea
                         assistant_message_id=assistant_id,
                     )
                     agent_ctx.registry_for = lambda owner, mode="interactive": ([], [])
+                    active_agent_ctx = agent_ctx
                     agent_ctx.provider_stream_chat = no_tool_provider
                     agent_events: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
 
@@ -736,8 +747,8 @@ async def stream_message(request: Request, session_id: str, payload: MessageCrea
                     from ..agent.loop import AgentContext, run_agent
                     from ..agent.tools import registry_for as agent_registry_for, Tool
 
-                    def chat_registry(owner: str, *, mode: str = "interactive") -> tuple[list[Any], list[dict[str, Any]]]:
-                        registered, _ = agent_registry_for(owner, mode=mode)
+                    def chat_registry(owner: str, *, mode: str = "interactive", ctx: Any = None) -> tuple[list[Any], list[dict[str, Any]]]:
+                        registered, _ = agent_registry_for(owner, mode=mode, ctx=ctx)
                         legacy: list[Any] = []
                         defs: list[dict[str, Any]] = []
                         for item in registered:
@@ -786,6 +797,7 @@ async def stream_message(request: Request, session_id: str, payload: MessageCrea
                         await agent_events.put((kind, payload_event))
 
                     agent_ctx = AgentContext(user_id=user_id, session_id=session_id, mode="interactive", assistant_message_id=assistant_id)
+                    active_agent_ctx = agent_ctx
                     agent_ctx.registry_for = chat_registry  # type: ignore[attr-defined]
                     agent_ctx.provider_stream_chat = _provider_chat  # type: ignore[attr-defined]
                     agent_task = asyncio.create_task(run_agent(agent_ctx, context, emit=emit_agent))

@@ -69,6 +69,12 @@ def _approved_background_call(ctx: Any, tool: Tool, args: Dict[str, Any]) -> boo
         action = str(item.get("action") or "")
         payload = item.get("payload")
         if action == tool.name and isinstance(payload, dict) and payload == args:
+            if tool.metadata.get("capability_id"):
+                guard = item.get("capability_guard")
+                if not isinstance(guard, dict) or guard.get("id") != tool.metadata.get("capability_id") or guard.get("version") != tool.metadata.get("version"):
+                    continue  # A prior schema approval cannot authorize a revision.
+                if not _consume_capability_approval(ctx, tool, item):
+                    continue
             browser_allowed = True
             if action in {"browser.click", "browser.submit"}:
                 browser_allowed = _consume_browser_approval(ctx, tool, item)
@@ -87,6 +93,26 @@ def _approved_background_call(ctx: Any, tool: Tool, args: Dict[str, Any]) -> boo
                     return False
             return browser_allowed
     return False
+
+
+def _consume_capability_approval(ctx: Any, tool: Tool, approval: Dict[str, Any]) -> bool:
+    """Spend a durable approval before an uncertain external write starts."""
+    approval_id = str(approval.get("id") or "")
+    job_id = _value(ctx, "job_id")
+    raw_payload = approval.get("approval_payload_json")
+    if not approval_id or not job_id or not isinstance(raw_payload, str):
+        return False
+    try:
+        from ..db import get_connection
+        with get_connection() as conn:
+            changed = conn.execute(
+                "UPDATE runtime_approvals SET status = 'consumed' WHERE id = ? AND user_id = ? AND job_id = ? "
+                "AND action = ? AND status = 'approved' AND payload_json = ?",
+                (approval_id, str(_value(ctx, "user_id", "")), job_id, tool.name, raw_payload),
+            ).rowcount
+        return changed == 1
+    except Exception:
+        return False
 
 
 def _consume_browser_approval(ctx: Any, tool: Tool, approval: Dict[str, Any]) -> bool:
@@ -179,6 +205,10 @@ async def decide(ctx: Any, tool: Tool, args: Optional[Dict[str, Any]] = None) ->
         result = Decision("deny", "工具未注册")
         _audit(ctx, Tool("invalid", "", {"type": "object"}, "read", lambda *_: None), result)  # type: ignore[arg-type]
         return result
+    if _value(ctx, "capability_sensitive", False) and tool.name in {"luma.memory.create", "luma.notifications.create"}:
+        result = Decision("deny", "敏感业务流程内容不能复制到长期记忆或无关通知")
+        _audit(ctx, tool, result)
+        return result
     mode = str(_value(ctx, "mode", "interactive") or "interactive")
     risk = tool.risk
     permission_key, allow_always = permission_key_for(tool)
@@ -224,7 +254,10 @@ async def decide(ctx: Any, tool: Tool, args: Optional[Dict[str, Any]] = None) ->
         # substitute for consuming one durable, owner-bound browser approval.
         context_confirmed = False
     confirmed = context_confirmed or _approved_background_call(ctx, tool, args)
-    if risk == "local" or forbidden_always:
+    requires_confirmation = bool(tool.metadata.get("requires_confirmation"))
+    if requires_confirmation:
+        result = Decision("allow" if confirmed else "confirm", "本次业务写操作需逐次确认" if not confirmed else "已通过本次调用确认", permission_key, False)
+    elif risk == "local" or forbidden_always:
         if confirmed:
             result = Decision("allow", "已通过本次调用确认", permission_key, False)
         else:

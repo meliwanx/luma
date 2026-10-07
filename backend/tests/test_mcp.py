@@ -15,6 +15,7 @@ from app import main
 from app import mcp
 from app import widgets
 from app.services import chat as chat_service
+from app.services import capabilities
 from app.db import get_connection
 from mcp_mock import MockMCPServer
 
@@ -139,6 +140,12 @@ class MCPTests(unittest.TestCase):
     def _names(self, seen):
         return [tool["function"]["name"] for tool in seen[0]["tools"]]
 
+    def _loaded_tool(self, connector_id, tool):
+        capability_id = "mcp:" + connector_id + ":" + tool
+        name = capabilities.load("local", [capability_id])["definitions"][0]["function"]["name"]
+        load = [{"type": "tool_calls", "calls": [{"id": "load_capability", "name": "luma.capabilities.load", "arguments": json.dumps({"capability_ids": [capability_id]})}]}]
+        return name, load
+
     def test_private_addresses_and_http_are_rejected(self):
         for url in ("http://example.com/mcp", "https://127.0.0.1/mcp", "https://10.1.2.3/mcp", "https://169.254.169.254/latest", "https://203.0.113.10/mcp", "https://user:pw@example.com/mcp", "https://[::1]/mcp"):
             response = self.client.post("/api/v1/connectors/mcp", json={"url": url, "headers": {"Authorization": "Bearer test-token"}})
@@ -170,7 +177,7 @@ class MCPTests(unittest.TestCase):
             self.skipTest("needs loopback MCP server")
         connector_id = self._add_sample()
         try:
-            name = "mcp_sample_query_sample"
+            name, load = self._loaded_tool(connector_id, "query_sample")
 
             def first():
                 yield {"type": "text", "content": "我查一下。"}
@@ -179,17 +186,18 @@ class MCPTests(unittest.TestCase):
             def second():
                 yield {"type": "text", "content": "记录显示用量为 1.2GB。"}
 
-            events, seen = self._stream([first(), second()])
-            self.assertIn(name, self._names(seen))
-            tool_events = [data for kind, data in events if kind == "tool"]
+            events, seen = self._stream([load, first(), second()])
+            self.assertNotIn(name, self._names(seen))
+            self.assertIn(name, self._names(seen[1:]))
+            tool_events = [data for kind, data in events if kind == "tool" and data["call_id"] == "call_1"]
             self.assertEqual([item["status"] for item in tool_events], ["running", "ok"])
-            tool_message = [item for item in seen[1]["messages"] if item.get("role") == "tool"][0]
+            tool_message = [item for item in seen[2]["messages"] if item.get("role") == "tool" and item.get("tool_call_id") == "call_1"][0]
             self.assertTrue(tool_message["content"].startswith("以下是外部工具返回的数据"))
             self.assertIn("record_id=record-001 示例用量 1.2GB", tool_message["content"])
             done = [data for kind, data in events if kind == "done"][-1]
             self.assertEqual(done["content"], "记录显示用量为 1.2GB。")
             calls = done["metadata"]["tool_calls"]
-            self.assertEqual([(item["tool"], item["status"]) for item in calls], [("query_sample", "ok")])
+            self.assertEqual([(item["tool"], item["status"]) for item in calls if item["tool"] == "query_sample"], [("query_sample", "ok")])
             self.assertNotIn("record-001", json.dumps(calls))
             self.assertNotIn("test-token", json.dumps(seen, ensure_ascii=False))
             # Disabled tools disappear from the model's tool list.
@@ -206,10 +214,11 @@ class MCPTests(unittest.TestCase):
         try:
             response = self.client.put("/api/v1/permissions/mcp:%s:reset_sample" % connector_id, json={"mode": "ask"})
             self.assertEqual(response.status_code, 200, response.text)
-            call = {"type": "tool_calls", "calls": [{"id": "call_w", "name": "mcp_sample_reset_sample", "arguments": json.dumps({"record_id": "record-001"})}]}
+            name, load = self._loaded_tool(connector_id, "reset_sample")
+            call = {"type": "tool_calls", "calls": [{"id": "call_w", "name": name, "arguments": json.dumps({"record_id": "record-001"})}]}
             before = self.server.counter.get("reset_sample", 0)
-            events, _ = self._stream([iter([{"type": "text", "content": "需要重置。"}, call])], content="重置一下")
-            self.assertEqual([data["status"] for kind, data in events if kind == "tool"], ["needs_confirmation"])
+            events, _ = self._stream([load, iter([{"type": "text", "content": "需要重置。"}, call])], content="重置一下")
+            self.assertEqual([data["status"] for kind, data in events if kind == "tool" and data["call_id"] == "call_w"], ["needs_confirmation"])
             done = [data for kind, data in events if kind == "done"][-1]
             self.assertEqual(self.server.counter.get("reset_sample", 0), before)
             widget = done["metadata"]["widgets"][0]
@@ -230,7 +239,7 @@ class MCPTests(unittest.TestCase):
             described = widgets.describe_for_model(f"[[widget:{widget['id']}]]", {widget["id"]: widget})
             self.assertIn("已执行", described)
             self.assertNotIn("已重置", described)
-            events, _ = self._stream([iter([call])], content="再重置一次")
+            events, _ = self._stream([load, iter([call])], content="再重置一次")
             second = [data for kind, data in events if kind == "done"][-1]["metadata"]["widgets"][0]
             cancel = self.client.post(f"/api/v1/widgets/{second['id']}/events", json={"action": "cancel"})
             self.assertEqual(cancel.json()["widget"]["state"], {"status": "cancelled"})
@@ -238,22 +247,23 @@ class MCPTests(unittest.TestCase):
         finally:
             self.client.delete(f"/api/v1/connectors/{connector_id}")
 
-    def test_write_tool_default_is_direct(self):
+    def test_loaded_write_confirms_even_with_default_always_permission(self):
         if not self.live_server:
             self.skipTest("needs loopback MCP server")
         connector_id = self._add_sample()
         try:
-            call = {"type": "tool_calls", "calls": [{"id": "call_direct", "name": "mcp_sample_reset_sample", "arguments": json.dumps({"record_id": "record-001"})}]}
+            name, load = self._loaded_tool(connector_id, "reset_sample")
+            call = {"type": "tool_calls", "calls": [{"id": "call_direct", "name": name, "arguments": json.dumps({"record_id": "record-001"})}]}
             before = self.server.counter.get("reset_sample", 0)
             events, _ = self._stream([
-                iter([{"type": "text", "content": "我先执行重置。"}, call]),
-                iter([{"type": "text", "content": "已完成重置。"}]),
+                load,
+                iter([{"type": "text", "content": "请求确认。"}, call]),
             ], content="重置一下")
-            self.assertEqual([data["status"] for kind, data in events if kind == "tool"], ["running", "ok"])
+            self.assertEqual([data["status"] for kind, data in events if kind == "tool" and data["call_id"] == "call_direct"], ["needs_confirmation"])
             done = [data for kind, data in events if kind == "done"][-1]
-            self.assertEqual(done["content"], "已完成重置。")
-            self.assertEqual(done["metadata"].get("widgets", []), [])
-            self.assertEqual(self.server.counter.get("reset_sample", 0), before + 1)
+            self.assertTrue(done["metadata"]["waiting_confirmation"])
+            self.assertEqual(done["metadata"]["widgets"][0]["type"], "confirm")
+            self.assertEqual(self.server.counter.get("reset_sample", 0), before)
         finally:
             self.client.delete(f"/api/v1/connectors/{connector_id}")
 

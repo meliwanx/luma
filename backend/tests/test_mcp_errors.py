@@ -3,6 +3,7 @@
 import asyncio
 import copy
 import json
+import hashlib
 import os
 import unittest
 from contextlib import contextmanager
@@ -49,11 +50,12 @@ class MCPErrorTests(unittest.TestCase):
         # No executor or policy audit opens an additional PostgreSQL connection.
         with patch.object(tools, "get_connection") as connection, \
                 patch.object(tools, "connector_from_id", return_value={"endpoint": "https://example.com/mcp"}):
-            connection.return_value.__enter__.return_value.execute.return_value.fetchone.return_value = {"ciphertext": "unused"}
+            connection.return_value.__enter__.return_value.execute.return_value.fetchone.return_value = {"ciphertext": "unused", "endpoint": "https://example.com/mcp", "kind": "mcp", "enabled": 1}
             yield
 
     def _execute(self, client):
         ctx = tools.AgentContext("fixture", mcp_clients={"connector": client})
+        ctx.mcp_client_bindings = {"connector": ("https://example.com/mcp", hashlib.sha256(b"unused").hexdigest())}
         with self._connector_storage():
             return asyncio.run(tools._mcp_executor(ctx, {"execution_mode": "plan_only"}, _INFO))
 
@@ -76,6 +78,7 @@ class MCPErrorTests(unittest.TestCase):
                 yield {"type": "text", "content": "最终答案草稿"}
 
         ctx = tools.AgentContext("fixture", mcp_clients={"connector": client})
+        ctx.mcp_client_bindings = {"connector": ("https://example.com/mcp", hashlib.sha256(b"unused").hexdigest())}
         ctx.registry_for = lambda user_id, mode="interactive": ([tool], [tool.openai_definition()])
         with self._connector_storage(), patch.object(policy, "_audit"), \
                 patch.dict(os.environ, {"DECIDER_ENDPOINT": "", "AGENT_MAX_ROUNDS": "3"}), \
