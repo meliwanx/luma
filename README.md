@@ -14,6 +14,14 @@ All reasoning and execution happen on your server and in the sandbox. Every clie
 
 > Status: early source-available release, published as source code only. There are no prebuilt Docker images, desktop installers or app-store builds; you build everything from this repository. The server and the web and desktop clients are usable. The iOS client builds from source.
 
+## Looking for a self-hosted Muse alternative?
+
+If you are exploring **Meta Muse alternatives**, Luma offers a **self-hosted personal AI agent** with persistent conversations, memory, goals and background tasks. Run it on your own server, choose an OpenAI-compatible model provider, and access the same assistant from the web, macOS / Windows or iOS.
+
+Connect your tools through **MCP**, and optionally enable a per-user **cloud sandbox** for **browser automation**, Python / shell **code execution**, files and long-running jobs. Start with [Quick start](#quick-start-docker) and [Cloud sandbox](#cloud-sandbox).
+
+Luma is an independent project with no affiliation to Meta Muse. In this release, desktop apps provide access to the server; code and browser actions run in the configured cloud sandbox. Control of your own Mac or Windows desktop is outside the current release. Luma is **source-available**: personal noncommercial use is free, and commercial use requires [prior written authorization](#license).
+
 ## What it does
 
 - **One main chat plus topic side chats.** A long-lived main conversation sits alongside optional side chats, one per topic, with full-text search across all of them. Replies keep generating when you switch chats or disconnect, and the event stream resumes when you return.
