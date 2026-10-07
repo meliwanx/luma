@@ -6,7 +6,7 @@ Luma 是一个可以自己部署的 AI 助理，支持多个客户端。你可�
 
 推理和执行全部发生在你的服务器和沙箱里，客户端只是同一个账号的不同入口。换设备或者关掉客户端，正在运行的任务都不会中断。
 
-> 状态：开源早期版本。服务端、网页端和桌面端可以正常使用；iOS 客户端可以从源码构建，但没有发布到任何应用商店。
+> 状态：开源早期版本，只发布源代码。不提供预构建的 Docker 镜像、桌面安装包或应用商店版本，全部需要从本仓库自行构建。服务端、网页端和桌面端可以正常使用；iOS 客户端可以从源码构建。
 
 ## 功能
 
@@ -64,8 +64,7 @@ chmod 600 .env
 # 编辑 .env：填写 DB_PASSWORD、REDIS_PASSWORD、AUTH_SESSION_SECRET、
 # LUMA_SECRETS_KEY 和 LLM_* 这几项（生成密钥的命令写在文件里）。
 
-docker compose pull          # 或者：docker compose build
-docker compose up -d --wait
+docker compose up -d --build --wait   # 从本仓库源码构建镜像并启动
 docker compose exec luma python -m app.cli create-admin --username admin
 ```
 
@@ -124,7 +123,7 @@ AGENT_RUNTIME_AIO_TOOL=...              # 或 AGENT_RUNTIME_CODE_TOOL / AGENT_RU
 - **数据库迁移**：启动时自动执行，用 PostgreSQL 咨询锁保证同一时间只有一个进程在迁移。
 - **健康检查**：`GET /health` 会报告数据库和 Redis 是否可以连接，容器本身也配置了健康检查。
 - **备份与恢复**：`scripts/backup.sh` 生成带时间戳的 `pg_dump`，并把文件卷打包；`scripts/restore.sh` 用来恢复这两部分。
-- **镜像**：`.github/workflows/docker.yml` 会为 `linux/amd64` 和 `linux/arm64` 两种架构构建 `ghcr.io/meliwanx/luma`。
+- **镜像**：不发布预构建镜像。`docker compose build` 会用 `Dockerfile` 在本地构建名为 `luma:local` 的镜像；要在别处使用，请打标签后推送到你自己控制的镜像仓库。`.github/workflows/ci.yml` 只运行后端测试和网页端构建。
 
 ## 客户端
 
@@ -139,7 +138,7 @@ AGENT_RUNTIME_AIO_TOOL=...              # 或 AGENT_RUNTIME_CODE_TOOL / AGENT_RU
 - 推送通知需要你自己的 APNs 或 FCM 凭据。
 - 界面文字以中文为主。
 - 不能操作用户自己的电脑，所有操作都在云端沙箱里进行。
-- 模型客户端走 OpenAI Chat Completions 协议（含流式输出和工具调用），这部分由针对模拟服务的测试覆盖。发布前的 Docker 验收确认了 `LLM_*` 配置能被正确读取，并确认 `LUMA_PROVIDER=local` 在没有模型服务时可以正常使用；但没有对任何具体厂商做真实推理测试，你选用的模型服务是否兼容，请自行验证。
+- 模型客户端走 OpenAI Chat Completions 协议（含流式输出和工具调用），这部分由针对模拟服务的测试覆盖。对从源码构建的 Docker 部署做的冒烟测试确认了 `LLM_*` 配置能被正确读取，并确认 `LUMA_PROVIDER=local` 在没有模型服务时可以正常使用；但没有对任何具体厂商做真实推理测试，你选用的模型服务是否兼容，请自行验证。
 
 ## 开发
 

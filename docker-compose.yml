@@ -2,7 +2,7 @@ name: luma
 
 services:
   luma:
-    image: ghcr.io/meliwanx/luma:latest
+    image: luma:local
     build: .
     restart: unless-stopped
     env_file: .env

@@ -6,7 +6,7 @@ Luma is a self-hosted AI assistant with several clients. You talk to it from the
 
 All reasoning and execution happen on your server and in the sandbox. Every client shows the same account, so switching devices or closing a client does not interrupt a running task.
 
-> Status: early open-source release. The server and the web and desktop clients are usable. The iOS client builds from source but is not published to any app store.
+> Status: early open-source release, published as source code only. There are no prebuilt Docker images, desktop installers or app-store builds; you build everything from this repository. The server and the web and desktop clients are usable. The iOS client builds from source.
 
 ## What it does
 
@@ -67,8 +67,7 @@ chmod 600 .env
 # Edit .env: set DB_PASSWORD, REDIS_PASSWORD, AUTH_SESSION_SECRET,
 # LUMA_SECRETS_KEY and the LLM_* values. The file includes commands to generate the secrets.
 
-docker compose pull          # or: docker compose build
-docker compose up -d --wait
+docker compose up -d --build --wait   # builds the image from this source tree
 docker compose exec luma python -m app.cli create-admin --username admin
 ```
 
@@ -127,7 +126,7 @@ Choose a region whose network can reach the sites your users need. Commands from
 - **Migrations** run automatically at startup, under a PostgreSQL advisory lock.
 - **Health:** `GET /health` reports whether the database and Redis are reachable. The container also has a health check.
 - **Backup and restore:** `scripts/backup.sh` writes a timestamped `pg_dump` and an archive of the file volume. `scripts/restore.sh` restores both.
-- **Images:** `.github/workflows/docker.yml` builds `ghcr.io/meliwanx/luma` for `linux/amd64` and `linux/arm64`.
+- **Images:** no prebuilt image is published. `docker compose build` builds a local image named `luma:local` from the `Dockerfile`. To run it elsewhere, tag and push it to a registry you control. `.github/workflows/ci.yml` only runs the backend tests and the web build.
 
 ## Clients
 
@@ -142,7 +141,7 @@ Choose a region whose network can reach the sites your users need. Commands from
 - Push notifications require your own APNs or FCM credentials.
 - The interface text is mostly in Chinese.
 - Luma cannot operate the user's own computer. All actions run in the cloud sandbox.
-- The model client speaks the OpenAI chat completions protocol, including streaming and tool calls, and is covered by tests against a mock server. The Docker release check confirmed that the `LLM_*` settings are picked up and that `LUMA_PROVIDER=local` works without a provider. It did not run real inference against any particular vendor, so verify your provider's compatibility yourself.
+- The model client speaks the OpenAI chat completions protocol, including streaming and tool calls, and is covered by tests against a mock server. A smoke test of a Docker deployment built from source confirmed that the `LLM_*` settings are picked up and that `LUMA_PROVIDER=local` works without a provider. It did not run real inference against any particular vendor, so verify your provider's compatibility yourself.
 
 ## Development
 

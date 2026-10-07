@@ -17,9 +17,9 @@ attempts from multiple workers.
    generation commands. Set `.env` permissions to `0600`.
 3. Set `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL` for your compatible provider.
    To exercise the application without a model endpoint, set `LUMA_PROVIDER=local`.
-4. Start the service with `docker compose up -d`. Use
-   `docker compose up -d --build --wait` to build locally, or
-   `docker compose pull && docker compose up -d --wait` to use the published image.
+4. Build the image from this source tree and start the service with
+   `docker compose up -d --build --wait`. The project publishes source code
+   only; no prebuilt image is provided.
 5. Initialize the first administrator from the server shell:
 
    ```sh
@@ -152,9 +152,7 @@ Take a verified backup before removing volumes or upgrading database major versi
 ## Automation
 
 `ci.yml` runs one backend test process against PostgreSQL/Redis service
-containers and builds the web app. `docker.yml` builds `linux/amd64` and
-`linux/arm64` on a main-branch push or tag, then publishes to
-`ghcr.io/<repository-owner>/luma` using `GITHUB_TOKEN` with `packages: write`.
-The image workflow follows the
-[official multi-platform build setup](https://docs.docker.com/build/ci/github-actions/multi-platform/).
-The default Compose image can be changed when publishing a fork.
+containers and builds the web app. No workflow builds or publishes container
+images or installers. Compose tags the locally built image as `luma:local`; if
+you want to distribute your own image, change `image:` in `docker-compose.yml`
+and push it to a registry you control.
