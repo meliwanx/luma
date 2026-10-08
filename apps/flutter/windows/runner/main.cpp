@@ -2,8 +2,33 @@
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
 
+#include <string>
+
+#include "brand_config.h"
 #include "flutter_window.h"
 #include "utils.h"
+
+namespace {
+
+std::wstring brandWindowTitle() {
+  const char* utf8 = BRAND_DISPLAY_NAME_UTF8;
+  if (utf8 == nullptr || utf8[0] == '\0') {
+    return L"Luma";
+  }
+  const int size = ::MultiByteToWideChar(
+      CP_UTF8, MB_ERR_INVALID_CHARS, utf8, -1, nullptr, 0);
+  if (size <= 1) {
+    return L"Luma";
+  }
+  std::wstring title(static_cast<size_t>(size - 1), L'\0');
+  if (::MultiByteToWideChar(
+          CP_UTF8, MB_ERR_INVALID_CHARS, utf8, -1, title.data(), size) <= 0) {
+    return L"Luma";
+  }
+  return title;
+}
+
+}  // namespace
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
@@ -27,7 +52,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
-  if (!window.Create(L"luma_client", origin, size)) {
+  if (!window.Create(brandWindowTitle(), origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

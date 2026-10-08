@@ -11,9 +11,11 @@ function readBrand(mode) {
     return value || fallback
   }
   const name = read('VITE_BRAND_PRODUCT_NAME', 'Luma')
-  const tagline = read('VITE_BRAND_TAGLINE', '个人助理')
+  const tagline = read('VITE_BRAND_TAGLINE', '你的个人 AI 助理')
   const color = read('VITE_BRAND_PRIMARY_COLOR', '#2563EB')
-  return { name, tagline, color, title: tagline ? `${name} · ${tagline}` : name }
+  const safeColor = /^#[0-9A-Fa-f]{6}$/.test(color) ? color : '#2563EB'
+  const logo = read('VITE_BRAND_LOGO_URL', '')
+  return { name, tagline, color: safeColor, logo, title: tagline ? `${name} · ${tagline}` : name }
 }
 
 function escapeHtml(value) {
@@ -35,6 +37,9 @@ export default defineConfig(({ command, mode }) => {
         order: 'post',
         handler: (html) => {
           let next = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(brand.title)}</title>`)
+          const brandStyle = `<style>:root{--brand-primary:${escapeHtml(brand.color)};--mc-user:var(--brand-primary)}</style>`
+          const logoMeta = brand.logo ? `<meta name="brand-logo-url" content="${escapeHtml(brand.logo)}" />` : ''
+          next = next.replace('</head>', `${brandStyle}${logoMeta}</head>`)
           if (brand.name.toLowerCase() === 'luma') {
             return command === 'build'
               ? next.replace(/href="\.\/(favicon\.svg|favicon-32\.png|apple-touch-icon\.png)"/g, 'href="/app/$1"')

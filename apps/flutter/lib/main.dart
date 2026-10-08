@@ -60,11 +60,11 @@ class LumaApp extends StatelessWidget {
                 title: context.brand.name,
                 theme: buildLumaTheme(
                   Brightness.light,
-                  accent: appearance.accent,
+                  accent: appearance.accent ?? context.brand.primary,
                 ),
                 darkTheme: buildLumaTheme(
                   Brightness.dark,
-                  accent: appearance.accent,
+                  accent: appearance.accent ?? context.brand.primary,
                 ),
                 themeMode: appearance.themeMode,
                 home: child,

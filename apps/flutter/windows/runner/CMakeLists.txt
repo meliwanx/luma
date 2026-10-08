@@ -35,7 +35,16 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
 target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE "comdlg32.lib")
+if(NOT BRAND_DISPLAY_NAME_ESCAPED)
+  set(BRAND_DISPLAY_NAME_ESCAPED "Luma")
+endif()
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/brand_config.h"
+  "#ifndef BRAND_CONFIG_H\n#define BRAND_CONFIG_H\n#define BRAND_DISPLAY_NAME_UTF8 \"${BRAND_DISPLAY_NAME_ESCAPED}\"\n#endif\n")
+target_include_directories(${BINARY_NAME} BEFORE PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
+if(MSVC)
+  target_compile_options(${BINARY_NAME} PRIVATE /utf-8)
+endif()
 
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)

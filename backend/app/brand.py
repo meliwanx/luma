@@ -20,6 +20,7 @@ break locks, metrics and existing deployments.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import threading
@@ -30,6 +31,10 @@ from typing import Callable, Dict, Optional
 
 class BrandConfigError(ValueError):
     """Raised when brand environment or JSON configuration is unusable."""
+
+
+_log = logging.getLogger(__name__)
+_HEX_COLOR = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 
 _FIELDS = (
@@ -58,7 +63,7 @@ _DEFAULTS = {
     "tagline": "你的个人 AI 助理",
     "company_name": "",
     "support_url": "",
-    "logo_url": "/brand/logo.svg",
+    "logo_url": "",
     "primary_color": "#2563EB",
 }
 
@@ -89,10 +94,10 @@ class Brand:
     tagline: str
     company_name: str
     support_url: str
-    logo_url: str
+    logo_url: Optional[str]
     primary_color: str
 
-    def public_dict(self) -> Dict[str, str]:
+    def public_dict(self) -> Dict[str, Optional[str]]:
         """Return only the public brand fields, in a stable order."""
         return {
             "product_name": self.product_name,
@@ -211,11 +216,33 @@ def _load_brand() -> Brand:
     _overlay(values, env_values)
     if not values["assistant_name"]:
         values["assistant_name"] = values["product_name"]
-    if not values["logo_url"]:
-        values["logo_url"] = _DEFAULTS["logo_url"]
-    if not values["primary_color"]:
-        values["primary_color"] = _DEFAULTS["primary_color"]
-    return Brand(**values)
+    logo = values["logo_url"].strip()
+    # An unset logo stays null. Clients then use the built-in wordmark only
+    # when the product name is Luma, and a text mark otherwise.
+    values["logo_url"] = logo or None
+    values["primary_color"] = _coerce_primary_color(values["primary_color"])
+    return Brand(
+        product_name=values["product_name"],
+        assistant_name=values["assistant_name"],
+        tagline=values["tagline"],
+        company_name=values["company_name"],
+        support_url=values["support_url"],
+        logo_url=values["logo_url"],
+        primary_color=values["primary_color"],
+    )
+
+
+def _coerce_primary_color(value: str) -> str:
+    text = value.strip()
+    if _HEX_COLOR.fullmatch(text):
+        return text
+    if text:
+        _log.warning(
+            "brand primary_color %r is not #RRGGBB; using %s",
+            text,
+            _DEFAULTS["primary_color"],
+        )
+    return _DEFAULTS["primary_color"]
 
 
 def _overlay(values: Dict[str, str], source: Dict[str, object]) -> None:

@@ -6,6 +6,20 @@ project(luma_client LANGUAGES CXX)
 # the on-disk name of your application.
 set(BINARY_NAME "luma_client")
 
+# Window title and VERSIONINFO ProductName. -DBRAND_DISPLAY_NAME=... or the
+# BRAND_DISPLAY_NAME environment variable overrides the open-source default.
+if(NOT BRAND_DISPLAY_NAME)
+  if(NOT "$ENV{BRAND_DISPLAY_NAME}" STREQUAL "")
+    set(BRAND_DISPLAY_NAME "$ENV{BRAND_DISPLAY_NAME}")
+  else()
+    set(BRAND_DISPLAY_NAME "Luma")
+  endif()
+endif()
+string(REPLACE "\\" "\\\\" BRAND_DISPLAY_NAME_ESCAPED "${BRAND_DISPLAY_NAME}")
+string(REPLACE "\"" "\\\"" BRAND_DISPLAY_NAME_ESCAPED "${BRAND_DISPLAY_NAME_ESCAPED}")
+string(REPLACE "\n" "" BRAND_DISPLAY_NAME_ESCAPED "${BRAND_DISPLAY_NAME_ESCAPED}")
+string(REPLACE "\r" "" BRAND_DISPLAY_NAME_ESCAPED "${BRAND_DISPLAY_NAME_ESCAPED}")
+
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
 cmake_policy(VERSION 3.14...3.25)

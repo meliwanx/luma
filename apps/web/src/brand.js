@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 import { loadBrowserLiveHostSuffixes } from './browser-tools.js'
 
 export const DEFAULT_PRODUCT_NAME = 'Luma'
-export const DEFAULT_TAGLINE = '个人助理'
+export const DEFAULT_TAGLINE = '你的个人 AI 助理'
 export const DEFAULT_PRIMARY_COLOR = '#2563EB'
 
 const COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
@@ -45,7 +45,7 @@ export function brandFromEnv(env = {}) {
     product_name: productName,
     name: productName,
     tagline,
-    logo_url: '',
+    logo_url: firstText(env.VITE_BRAND_LOGO_URL),
     primary_color: normalizeColor(env.VITE_BRAND_PRIMARY_COLOR),
   }
 }

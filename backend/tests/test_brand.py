@@ -78,7 +78,7 @@ class BrandConfigTests(unittest.TestCase):
             self.assertEqual(brand.tagline, "你的个人 AI 助理")
             self.assertEqual(brand.company_name, "")
             self.assertEqual(brand.support_url, "")
-            self.assertEqual(brand.logo_url, "/brand/logo.svg")
+            self.assertIsNone(brand.logo_url)
             self.assertEqual(brand.primary_color, "#2563EB")
             self.assertIs(get_brand(), brand)
             self.assertEqual(product_slug(), "luma")
@@ -120,7 +120,7 @@ class BrandConfigTests(unittest.TestCase):
                 self.assertEqual(brand.assistant_name, "FileHelper")
                 self.assertEqual(brand.tagline, "file tag")
                 self.assertEqual(brand.company_name, "File Co")
-                self.assertEqual(brand.logo_url, "/brand/logo.svg")
+                self.assertIsNone(brand.logo_url)
                 self.assertNotIn("secret", brand.public_dict())
             with brand_env(
                 BRAND_CONFIG=str(path),
@@ -133,6 +133,23 @@ class BrandConfigTests(unittest.TestCase):
                 self.assertEqual(brand.assistant_name, "EnvHelper")
                 self.assertEqual(brand.tagline, "env tag")
                 self.assertEqual(brand.company_name, "File Co")
+
+    def test_blank_logo_stays_null_and_bad_color_falls_back(self):
+        with brand_env(BRAND_LOGO_URL="  ", BRAND_PRIMARY_COLOR="#1E66F5"):
+            brand = get_brand()
+            self.assertIsNone(brand.logo_url)
+            self.assertEqual(brand.primary_color, "#1E66F5")
+        with brand_env(BRAND_PRIMARY_COLOR="blue"):
+            with self.assertLogs("app.brand", level="WARNING") as logs:
+                clear_brand_cache()
+                brand = get_brand()
+            self.assertEqual(brand.primary_color, "#2563EB")
+            self.assertTrue(any("primary_color" in line for line in logs.output))
+        for bad in ("#fff", "#11223344", "112233"):
+            with brand_env(BRAND_PRIMARY_COLOR=bad):
+                with self.assertLogs("app.brand", level="WARNING"):
+                    clear_brand_cache()
+                    self.assertEqual(get_brand().primary_color, "#2563EB")
 
     def test_unreadable_or_invalid_json_is_rejected(self):
         with brand_env(BRAND_CONFIG="/tmp/oc-brand-missing-b2.json"):
@@ -166,9 +183,28 @@ class BrandApiTests(unittest.TestCase):
         self.assertEqual(payload["product_name"], "FromEnv")
         self.assertEqual(payload["assistant_name"], "FromEnv")
         self.assertEqual(payload["support_url"], "https://example.com/help")
-        self.assertEqual(payload["logo_url"], "/brand/logo.svg")
+        self.assertIsNone(payload["logo_url"])
         self.assertNotIn("secret", payload)
         self.assertNotIn("BRAND_CONFIG", json.dumps(payload))
+
+    def test_juguang_rename_is_returned_and_used_in_prompts(self):
+        with brand_env(
+            BRAND_PRODUCT_NAME="聚光测试",
+            BRAND_TAGLINE="你的个人 AI 助理",
+            BRAND_PRIMARY_COLOR="#1E66F5",
+            BRAND_LOGO_URL="https://example.com/juguang-logo.png",
+        ):
+            response = self.client.get("/api/v1/brand")
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["product_name"], "聚光测试")
+            self.assertEqual(payload["assistant_name"], "聚光测试")
+            self.assertEqual(payload["tagline"], "你的个人 AI 助理")
+            self.assertEqual(payload["primary_color"], "#1E66F5")
+            self.assertEqual(payload["logo_url"], "https://example.com/juguang-logo.png")
+            prompt = str(widgets.SYSTEM_PROMPT)
+            self.assertIn("你是 聚光测试，", prompt)
+            self.assertNotIn("你是 Luma，", prompt)
 
     def test_routes_are_registered_before_the_spa_fallback(self):
         paths = [getattr(route, "path", "") for route in main_app.routes]

@@ -47,6 +47,7 @@ class BuildIosReleaseTests(unittest.TestCase):
         )
         self.env.pop("BRAND_DISPLAY_NAME", None)
         self.env.pop("BUNDLE_ID", None)
+        self.env["ALLOW_DEFAULT_BRAND"] = "1"
 
     def run_script(self, script=RELEASE_SCRIPT, **env_overrides):
         env = self.env.copy()
@@ -196,6 +197,71 @@ class BuildIosReleaseTests(unittest.TestCase):
                 encoding="utf-8"
             )
             self.assertIn('#include "Brand.xcconfig"', text)
+
+    def test_release_requires_bundle_id_and_display_name(self):
+        self.env.pop("ALLOW_DEFAULT_BRAND", None)
+        result = self.run_script(
+            API_BASE_URL="https://api.invalid",
+            TEAM_ID="TEAM123456",
+            BRAND_DISPLAY_NAME="聚光测试",
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("BUNDLE_ID", result.stderr)
+        self.assertFalse(self.record_path.exists())
+        result = self.run_script(
+            API_BASE_URL="https://api.invalid",
+            TEAM_ID="TEAM123456",
+            BUNDLE_ID="app.juguang.test",
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("BRAND_DISPLAY_NAME", result.stderr)
+        self.assertFalse(self.record_path.exists())
+        result = self.run_script(
+            API_BASE_URL="https://api.invalid",
+            TEAM_ID="TEAM123456",
+            BUNDLE_ID="app.luma.client",
+            BRAND_DISPLAY_NAME="Luma",
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("app.luma.client", result.stderr)
+        self.assertFalse(self.record_path.exists())
+
+    def test_allow_default_brand_permits_open_source_bundle_id(self):
+        result = self.run_script(
+            API_BASE_URL="https://api.invalid",
+            ALLOW_DEFAULT_BRAND="1",
+            BUNDLE_ID="app.luma.client",
+            BRAND_DISPLAY_NAME="Luma",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_juguang_display_name_is_written_to_local_xcconfig(self):
+        flutter_dir = self.work_dir / "flutter fixture"
+        scripts_dir = flutter_dir / "scripts"
+        scripts_dir.mkdir(parents=True)
+        release_script = scripts_dir / RELEASE_SCRIPT.name
+        shutil.copy2(RELEASE_SCRIPT, release_script)
+        (flutter_dir / "pubspec.yaml").write_text(
+            "version: 1.2.3+7\n", encoding="utf-8"
+        )
+        self.env.pop("ALLOW_DEFAULT_BRAND", None)
+        result = self.run_script(
+            script=release_script,
+            API_BASE_URL="https://api.invalid",
+            BUILD_NUMBER="7",
+            BUNDLE_ID="app.juguang.test",
+            BRAND_DISPLAY_NAME="聚光测试",
+            TEAM_ID="TEAM123456",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        local = (
+            flutter_dir / "ios" / "Flutter" / "Brand.local.xcconfig"
+        ).read_text(encoding="utf-8")
+        self.assertIn("BRAND_DISPLAY_NAME=聚光测试\n", local)
+        self.assertIn("PRODUCT_BUNDLE_IDENTIFIER=app.juguang.test\n", local)
+        self.assertIn("DEVELOPMENT_TEAM=TEAM123456\n", local)
+        invocation = json.loads(self.record_path.read_text(encoding="utf-8"))
+        self.assertIn("--dart-define=BRAND_PRODUCT_NAME=聚光测试", invocation["argv"])
 
     def test_flutter_failure_exit_code_is_propagated(self):
         api_base_url = "https://api.invalid"

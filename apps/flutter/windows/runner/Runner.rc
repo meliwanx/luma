@@ -2,6 +2,7 @@
 //
 #pragma code_page(65001)
 #include "resource.h"
+#include "brand_config.h"
 
 #define APSTUDIO_READONLY_SYMBOLS
 /////////////////////////////////////////////////////////////////////////////
@@ -95,7 +96,7 @@ BEGIN
             VALUE "InternalName", "luma_client" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
             VALUE "OriginalFilename", "luma_client.exe" "\0"
-            VALUE "ProductName", "luma_client" "\0"
+            VALUE "ProductName", BRAND_DISPLAY_NAME_UTF8 "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

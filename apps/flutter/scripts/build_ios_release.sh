@@ -16,6 +16,23 @@ if [[ ! "$TEAM_ID" =~ ^[A-Za-z0-9]+$ ]]; then
   exit 1
 fi
 
+# Release builds must name the product. ALLOW_DEFAULT_BRAND=1 is the explicit
+# opt-in for the open-source bundle id app.luma.client and the Luma display name.
+if [[ "${ALLOW_DEFAULT_BRAND:-}" != "1" ]]; then
+  if [[ -z "${BUNDLE_ID:-}" ]]; then
+    echo "错误：发布构建必须设置 BUNDLE_ID。若要使用开源默认 app.luma.client，请设置 ALLOW_DEFAULT_BRAND=1。" >&2
+    exit 1
+  fi
+  if [[ "$BUNDLE_ID" == "app.luma.client" ]]; then
+    echo "错误：BUNDLE_ID 不能使用开源默认 app.luma.client，除非设置 ALLOW_DEFAULT_BRAND=1。" >&2
+    exit 1
+  fi
+  if [[ -z "${BRAND_DISPLAY_NAME:-}" ]]; then
+    echo "错误：发布构建必须设置 BRAND_DISPLAY_NAME。" >&2
+    exit 1
+  fi
+fi
+
 validate_xcconfig_value() {
   local name="$1"
   local value="$2"

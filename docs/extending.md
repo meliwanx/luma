@@ -143,19 +143,74 @@ Environment variables win over the file. Defaults:
 | `BRAND_TAGLINE` | `你的个人 AI 助理` |
 | `BRAND_COMPANY_NAME` | empty |
 | `BRAND_SUPPORT_URL` | empty |
-| `BRAND_LOGO_URL` | `/brand/logo.svg` |
-| `BRAND_PRIMARY_COLOR` | `#2563EB` |
+| `BRAND_LOGO_URL` | empty; the API returns `null` |
+| `BRAND_PRIMARY_COLOR` | `#2563EB` (`#RRGGBB`; other values fall back and log a warning) |
 | `BRAND_CONFIG` | empty |
-| `BRAND_ASSETS_DIR` | empty; logo and favicon fall back to the built-in assets |
+| `BRAND_ASSETS_DIR` | empty; logo and favicon files fall back to the built-in assets |
 
-`GET /api/v1/brand` returns only those public fields. Private plugins should
-read the same values instead of embedding a product name.
+`GET /api/v1/brand` returns only those public fields. `logo_url` is `null` when
+it was not configured. Private plugins should read the same values instead of
+embedding a product name. Web and Flutter draw the built-in wordmark only when
+the product name is Luma and `logo_url` is empty; any other name uses a text
+mark in the primary color. A non-empty `logo_url` is loaded as an image and
+falls back to that mark if the request fails.
 
-Web builds use `VITE_BRAND_PRODUCT_NAME`, `VITE_BRAND_TAGLINE` and
-`VITE_BRAND_PRIMARY_COLOR`. Flutter builds use `BRAND_PRODUCT_NAME`,
-`BRAND_TAGLINE` and `BRAND_PRIMARY_COLOR`. iOS display name and bundle id use
-`BRAND_DISPLAY_NAME` (default `Luma`) and the bundle id configured for that
-build. Desktop packaging reads `BRAND_FILE` (default `brand.json`).
+The tagline default on the server, web and Flutter is `你的个人 AI 助理`.
+
+Web builds use `VITE_BRAND_PRODUCT_NAME`, `VITE_BRAND_TAGLINE`,
+`VITE_BRAND_PRIMARY_COLOR` and `VITE_BRAND_LOGO_URL`. The built `index.html`
+sets `--brand-primary` from the color, and that is the accent until a person
+picks one in settings. Flutter builds use `BRAND_PRODUCT_NAME`, `BRAND_TAGLINE`
+and `BRAND_PRIMARY_COLOR`. An accent saved in settings wins; otherwise the
+theme uses the brand primary.
+
+iOS release packaging goes through `apps/flutter/scripts/build_ios_release.sh`.
+`TEAM_ID`, `BUNDLE_ID` and `BRAND_DISPLAY_NAME` are required. Set
+`ALLOW_DEFAULT_BRAND=1` to sign the open-source bundle id `app.luma.client`
+with the Luma display name. Android release tasks (`*Release`) require
+`-PbrandAppId`. `-PallowDefaultBrand=1` or `ALLOW_DEFAULT_BRAND=1` allows
+`app.luma.client`. Debug builds keep that default without the flag.
+
+macOS display name is `BRAND_DISPLAY_NAME` in
+`apps/flutter/macos/Runner/Configs/AppInfo.xcconfig` (default `Luma`). A
+packaging checkout can write `Brand.local.xcconfig` next to it; that file is
+gitignored. `PRODUCT_NAME` follows the same value. Windows reads
+`BRAND_DISPLAY_NAME` from the environment or `-DBRAND_DISPLAY_NAME` and uses it
+for the window title and `ProductName` (default `Luma`).
+
+Desktop packaging reads `BRAND_FILE` (default `brand.json`).
+
+### Launcher icons
+
+`scripts/brand-assets.sh` turns one 1024×1024 PNG into the icons a rebrand
+needs. An optional SVG, or a separate tray PNG, supplies the menu-bar and
+notification icons. The script writes only the directory given by `--out`. It
+refuses the repository directories that already contain the open-source icons,
+so a company build can generate into a private tree and copy over the defaults
+at pack time.
+
+```sh
+scripts/brand-assets.sh \
+  --png brand/icon-1024.png \
+  --svg brand/logo.svg \
+  --out "$BRAND_PRIVATE/icons"
+```
+
+`--tray brand/tray.png` replaces the SVG for tray images. With neither, tray
+images are resized from the PNG. The layout under `--out` is:
+
+| Path | Contents |
+| --- | --- |
+| `ios/AppIcon.appiconset/` | every iOS size; the 1024 image has no alpha channel |
+| `android/mipmap-*/ic_launcher.png` | mdpi through xxxhdpi |
+| `desktop/icon.icns`, `icon.ico`, `icon.png` | macOS, Windows and the common PNG |
+| `desktop/tray.png`, `tray@2x.png`, `trayTemplate.png`, `trayTemplate@2x.png` | status-item icons |
+
+The tools are macOS `sips`, `iconutil` and `qlmanage` (SVG only), plus the
+Python standard library. No extra packages are installed. Copy
+`ios/AppIcon.appiconset` onto the Flutter iOS asset catalog,
+`android/mipmap-*` onto `android/app/src/main/res`, and the `desktop/` files
+into the directory named by desktop `iconDir`.
 
 ## Accounts
 

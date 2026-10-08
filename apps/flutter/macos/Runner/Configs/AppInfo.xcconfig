@@ -4,8 +4,11 @@
 // future. If not, the values below would default to using the project name when this becomes a
 // 'flutter create' template.
 
-// The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = luma_client
+// Display name. Brand.local.xcconfig (not committed) may set BRAND_DISPLAY_NAME.
+// The default is the open-source name. PRODUCT_NAME follows that value.
+#include? "Brand.local.xcconfig"
+BRAND_DISPLAY_NAME = $(BRAND_DISPLAY_NAME:default=Luma)
+PRODUCT_NAME = $(BRAND_DISPLAY_NAME)
 
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = com.example.lumaClient
