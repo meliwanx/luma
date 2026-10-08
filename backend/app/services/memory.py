@@ -17,7 +17,8 @@ import re
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor, wait
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Any, Callable, Optional, Sequence
 
 from .. import provider
@@ -235,6 +236,71 @@ def _is_pinned(row: dict[str, Any]) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in {"1", "true", "yes", "on"}
     return bool(value)
+
+
+
+MEMORY_CONSOLIDATION_TZ = "Asia/Shanghai"
+
+
+def _memory_zone():
+    """Asia/Shanghai, or a fixed UTC+8 offset if the zone database is missing."""
+
+    try:
+        return ZoneInfo(MEMORY_CONSOLIDATION_TZ)
+    except (ZoneInfoNotFoundError, ValueError):
+        return timezone(timedelta(hours=8))
+
+
+def memory_consolidation_cutoff(now: Optional[datetime] = None) -> datetime:
+    """Midnight at the start of the Asia/Shanghai day that contains ``now``.
+
+    Nightly and weekly sweeps share this cutoff.  A memory written at or after
+    local midnight is kept, including anything saved in the small hours before
+    the 03:10 run.
+    """
+
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    local = current.astimezone(_memory_zone())
+    return local.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def forget_unpinned_memories(conn: Any, now: Optional[datetime] = None) -> int:
+    """Delete unpinned memories created before today's Asia/Shanghai midnight.
+
+    Pinned rows are left as stored: they are not rewritten or merged.  The
+    nightly job and the Monday job call this same delete.  A second call in
+    the same day removes nothing because those rows are already gone.
+    """
+
+    cutoff = memory_consolidation_cutoff(now)
+    rows = conn.execute(
+        "SELECT id, pinned, created_at FROM memories WHERE pinned IS NOT TRUE",
+    ).fetchall()
+    deleted = 0
+    for row in rows:
+        record = dict(row)
+        # The SQL predicate is repeated here so a non-boolean pin value, or a
+        # row the caller handed in without applying the WHERE clause, is kept.
+        if _is_pinned(record):
+            continue
+        created = _parse_timestamp(record.get("created_at"))
+        # Unreadable timestamps are kept.  A bad value must not abort the
+        # sweep, and the date is not guessed.
+        if created is None or created >= cutoff:
+            continue
+        memory_id = str(record.get("id") or "")
+        if not memory_id:
+            continue
+        result = conn.execute(
+            "DELETE FROM memories WHERE id = ? AND pinned IS NOT TRUE",
+            (memory_id,),
+        )
+        removed = getattr(result, "rowcount", None)
+        if removed:
+            deleted += int(removed)
+    return deleted
 
 
 def _is_explicit_category(value: Any) -> bool:
@@ -475,6 +541,7 @@ def schedule_memory_extraction(user_id: str, session_id: str, assistant_message_
 __all__ = [
     "contains_sensitive_information", "extract_and_store_memories", "extract_memories",
     "extract_memory_candidates", "provider_complete",
+    "forget_unpinned_memories", "memory_consolidation_cutoff",
     "get_relevant_memories", "memory_score", "memory_terms", "parse_memory_response",
     "retrieve_memories", "schedule_memory_extraction", "submit_memory_background",
     "drain_memory_workers", "shutdown_memory_workers",

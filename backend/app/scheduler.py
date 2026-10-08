@@ -342,10 +342,63 @@ def _due_routines(conn: Any, now_dt: datetime, now_iso: str) -> tuple[int, list[
     return count, emitted
 
 
+# In-process sweeps.  This scheduler has no cron timezone, so both times are
+# read as Asia/Shanghai wall clocks on each tick:
+#   nightly — first tick at or after 03:10 every day
+#   weekly  — first tick at or after 03:20 on Monday (same delete, second pass)
+# A process that was down at 03:10 still sweeps on its first later tick that
+# day.  A restart may sweep again; the delete itself is idempotent and never
+# removes a memory created after local midnight.
+MEMORY_NIGHTLY_AT = (3, 10)
+MEMORY_WEEKLY_AT = (3, 20)  # Monday (datetime.weekday() == 0)
+_MEMORY_CONSOLIDATION_RAN: dict[str, Any] = {"nightly": None, "weekly": None}
+
+
+def reset_memory_consolidation_schedule() -> None:
+    """Forget which sweeps this process already ran.  Tests use this."""
+
+    _MEMORY_CONSOLIDATION_RAN["nightly"] = None
+    _MEMORY_CONSOLIDATION_RAN["weekly"] = None
+
+
+def memory_consolidation_due(now: datetime) -> list[str]:
+    """Return ``nightly`` and/or ``weekly`` when this process should sweep.
+
+    The returned slots have not been recorded yet.  Call
+    ``_mark_memory_consolidation`` only after the delete commits.
+    """
+
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    local = now.astimezone(_zone(DEFAULT_TIMEZONE))
+    clock = (local.hour, local.minute)
+    due: list[str] = []
+    if clock >= MEMORY_NIGHTLY_AT and _MEMORY_CONSOLIDATION_RAN.get("nightly") != local.date():
+        due.append("nightly")
+    if (
+        local.weekday() == 0
+        and clock >= MEMORY_WEEKLY_AT
+        and _MEMORY_CONSOLIDATION_RAN.get("weekly") != local.date()
+    ):
+        due.append("weekly")
+    return due
+
+
+def _mark_memory_consolidation(now: datetime, slots: list[str]) -> None:
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    local_date = now.astimezone(_zone(DEFAULT_TIMEZONE)).date()
+    for slot in slots:
+        if slot in _MEMORY_CONSOLIDATION_RAN:
+            _MEMORY_CONSOLIDATION_RAN[slot] = local_date
+
+
 def scheduler_tick() -> dict[str, int]:
     """Run one scheduler pass under the process-wide advisory lock."""
 
     lock_conn = None
+    consolidation_slots: list[str] = []
+    consolidated_at: Optional[datetime] = None
     try:
         with get_connection() as conn:
             lock_conn = conn
@@ -385,6 +438,27 @@ def scheduler_tick() -> dict[str, int]:
                     conn.execute("ROLLBACK TO SAVEPOINT background_tick")
                     conn.execute("RELEASE SAVEPOINT background_tick")
                     logger.warning("background tick kind=%s error=%s", name, type(exc).__name__)
+            memory_forgotten = 0
+            pending_slots = memory_consolidation_due(current)
+            if pending_slots:
+                conn.execute("SAVEPOINT memory_consolidation")
+                try:
+                    from .services.memory import forget_unpinned_memories
+
+                    # Each due slot is its own pass.  On Monday after 03:20 that
+                    # is the nightly delete and then the same delete again.
+                    for _slot in pending_slots:
+                        memory_forgotten += int(forget_unpinned_memories(conn, now=current))
+                    conn.execute("RELEASE SAVEPOINT memory_consolidation")
+                    consolidation_slots = list(pending_slots)
+                    consolidated_at = current
+                except Exception as exc:
+                    conn.execute("ROLLBACK TO SAVEPOINT memory_consolidation")
+                    conn.execute("RELEASE SAVEPOINT memory_consolidation")
+                    logger.warning("memory consolidation error=%s", type(exc).__name__)
+                    memory_forgotten = 0
+        if consolidation_slots and consolidated_at is not None:
+            _mark_memory_consolidation(consolidated_at, consolidation_slots)
         # Route every notification through the shared persistence/fan-out
         # adapter after the scheduler transaction has committed.
         for item in task_notifications:
@@ -395,7 +469,8 @@ def scheduler_tick() -> dict[str, int]:
             except Exception:
                 logger.exception("task reminder notification failed")
         return {"locked": 1, "task_reminders": tasks, "routine_jobs": routines,
-                "proactive_jobs": proactive_jobs, "feed_jobs": feed_jobs}
+                "proactive_jobs": proactive_jobs, "feed_jobs": feed_jobs,
+                "memory_forgotten": memory_forgotten}
     except Exception:
         logger.exception("scheduler tick failed")
         return {"locked": 1 if lock_conn is not None else 0, "task_reminders": 0, "routine_jobs": 0}
@@ -518,4 +593,6 @@ __all__ = [
     "scheduler_tick",
     "scheduler_loop",
     "routine_job_finished",
+    "memory_consolidation_due",
+    "reset_memory_consolidation_schedule",
 ]
