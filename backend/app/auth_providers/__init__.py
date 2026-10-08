@@ -5,23 +5,36 @@ from __future__ import annotations
 from typing import Any
 
 _ALLOWED = ("password", "sso")
+_INVALID_PROVIDERS = "AUTH_PROVIDERS must be a comma-separated list of: password, sso"
+_EMPTY_PROVIDERS = "AUTH_PROVIDERS must list at least one provider"
 
 
-def enabled_provider_names() -> list[str]:
+def _provider_selection() -> tuple[list[str], str | None]:
+    """Parse AUTH_PROVIDERS without raising, so import can mount routes safely."""
+
     from ..auth import _env
 
-    raw = _env("AUTH_PROVIDERS", "password") or "password"
+    raw = _env("AUTH_PROVIDERS", "password")
+    if not raw:
+        return [], _EMPTY_PROVIDERS
     names: list[str] = []
     for part in raw.split(","):
         name = part.strip().lower()
         if not name:
             continue
         if name not in _ALLOWED:
-            raise RuntimeError("AUTH_PROVIDERS must be a comma-separated list of: password, sso")
+            return [], _INVALID_PROVIDERS
         if name not in names:
             names.append(name)
     if not names:
-        raise RuntimeError("AUTH_PROVIDERS must list at least one provider")
+        return [], _EMPTY_PROVIDERS
+    return names, None
+
+
+def enabled_provider_names() -> list[str]:
+    names, error = _provider_selection()
+    if error:
+        raise RuntimeError(error)
     return names
 
 
@@ -79,5 +92,11 @@ def public_providers() -> dict[str, Any]:
 
 
 def mount_providers(app: Any) -> None:
-    for provider in build_providers():
-        app.include_router(provider.routes())
+    # Invalid configuration is reported by validate_provider_configuration at
+    # startup. Importing the application must not raise for a bad env value.
+    names, error = _provider_selection()
+    if error:
+        return
+    classes = _provider_classes()
+    for name in names:
+        app.include_router(classes[name]().routes())

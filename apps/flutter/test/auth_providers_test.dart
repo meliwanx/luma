@@ -51,6 +51,19 @@ void main() {
     expect(AssistantApi.originOf('http://127.0.0.1:8000', requireSecure: true), 'http://127.0.0.1:8000');
   });
 
+  test('sso start allows a different https host and loopback http', () {
+    expect(ssoStartUrlAllowed('https://login.other.test/api/sso/federated-login'), isTrue);
+    expect(ssoStartUrlAllowed('https://sso.example.test/start'), isTrue);
+    expect(ssoStartUrlAllowed('http://127.0.0.1:8000/start'), isTrue);
+    expect(ssoStartUrlAllowed('http://localhost/start'), isTrue);
+    expect(ssoStartUrlAllowed('http://[::1]/start'), isTrue);
+    expect(ssoStartUrlAllowed('http://evil.example/start'), isFalse);
+    expect(ssoStartUrlAllowed('http://10.1.1.1/start'), isFalse);
+    expect(ssoStartUrlAllowed('javascript:alert(1)'), isFalse);
+    expect(ssoStartUrlAllowed('https://'), isFalse);
+    expect(ssoStartUrlAllowed(''), isFalse);
+  });
+
   test('sso password login uses fixed errors and does not echo the password', () async {
     const secret = 'do-not-echo-this-password';
     final api = AssistantApi(
@@ -143,7 +156,7 @@ void main() {
           expect(request.url.path, '/api/v1/auth/providers');
           return _response({
             'providers': [
-              {'name': 'sso', 'label': '单点登录', 'kind': 'redirect', 'origin': 'https://sso.example.test'},
+              {'name': 'sso', 'label': '单点登录', 'kind': 'redirect'},
               {'name': 'sso', 'label': '账号', 'kind': 'credentials', 'account_label': '账号'},
             ],
             'registration_open': false,

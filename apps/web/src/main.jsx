@@ -2808,24 +2808,23 @@ function LoginPage({ onAuthenticated }) {
 
 const SSO_CALLBACK_STORAGE_KEY = 'luma_sso_state'
 
-function ssoRedirectOrigin(provider) {
-  const value = provider && typeof provider.origin === 'string' ? provider.origin : ''
+function ssoStartUrlAllowed(value) {
   try {
     const target = new URL(value)
-    if (target.protocol !== 'https:' && target.protocol !== 'http:') return ''
-    return target.origin
+    if (!target.hostname) return false
+    if (target.protocol === 'https:') return true
+    if (target.protocol !== 'http:') return false
+    const host = target.hostname.toLowerCase()
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1'
   } catch {
-    return ''
+    return false
   }
 }
 
 async function beginSsoLogin(provider, reportError) {
   try {
     const started = await startSsoLogin(API_URL, '/app')
-    const target = new URL(started.url)
-    if (target.protocol !== 'https:' && target.protocol !== 'http:') throw new Error('单点登录暂时不可用')
-    const expected = ssoRedirectOrigin(provider)
-    if (expected && target.origin !== expected) throw new Error('单点登录暂时不可用')
+    if (!provider || !ssoStartUrlAllowed(started && started.url)) throw new Error('单点登录暂时不可用')
     if (!started.state) throw new Error('单点登录暂时不可用')
     sessionStorage.setItem(SSO_CALLBACK_STORAGE_KEY, JSON.stringify({ state: started.state, next: '/app' }))
     window.location.assign(started.url)
@@ -2856,7 +2855,7 @@ function SsoCallbackPage() {
       let pending = null
       try { pending = JSON.parse(sessionStorage.getItem(SSO_CALLBACK_STORAGE_KEY) || 'null') } catch { pending = null }
       const expectedState = pending?.state || ''
-      if (!ticket || (returnedState && (!expectedState || returnedState !== expectedState))) {
+      if (!ticket || ((expectedState || returnedState) && returnedState !== expectedState)) {
         if (active) { setStatus('error'); setMessage('登录交易已失效，请重新发起登录。') }
         return
       }

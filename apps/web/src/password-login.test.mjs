@@ -235,3 +235,90 @@ test('sso account login posts account and a mismatched origin does not navigate'
   assert.deepEqual(page.navigations, [])
   assert.match(renderToStaticMarkup(page.render()), /单点登录暂时不可用/)
 })
+
+test('sso redirect follows a different https host and loopback http', async () => {
+  const remote = pageHarness({
+    config: { providers: [{ name: 'sso', kind: 'redirect', label: '单点登录', origin: 'https://sso.example.test' }] },
+    start: async () => ({ url: 'https://login.other.test/federated-login', state: 'state-token-example' }),
+  })
+  await remote.initialize()
+  await findElement(remote.render(), (element) => element.type === 'button' && element.props.type === 'button').props.onClick()
+  assert.deepEqual(remote.navigations, [['assign', 'https://login.other.test/federated-login']])
+  assert.equal(remote.stored.some((item) => item.key === 'luma_sso_state'), true)
+
+  const local = pageHarness({
+    config: { providers: [{ name: 'sso', kind: 'redirect', label: '单点登录' }] },
+    start: async () => ({ url: 'http://127.0.0.1:8000/start', state: 'state-token-example' }),
+  })
+  await local.initialize()
+  await findElement(local.render(), (element) => element.type === 'button' && element.props.type === 'button').props.onClick()
+  assert.deepEqual(local.navigations, [['assign', 'http://127.0.0.1:8000/start']])
+
+  const blank = pageHarness({
+    config: { providers: [{ name: 'sso', kind: 'redirect', label: '单点登录' }] },
+    start: async () => ({ url: 'https://', state: 'state-token-example' }),
+  })
+  await blank.initialize()
+  await findElement(blank.render(), (element) => element.type === 'button' && element.props.type === 'button').props.onClick()
+  assert.deepEqual(blank.navigations, [])
+  assert.match(renderToStaticMarkup(blank.render()), /单点登录暂时不可用/)
+})
+
+const callbackSource = source.slice(source.indexOf('const SSO_CALLBACK_STORAGE_KEY'), source.indexOf('function RouteApp('))
+const callbackCode = (await transformWithEsbuild(callbackSource, 'sso-callback.jsx', { loader: 'jsx', jsx: 'transform', jsxFactory: 'React.createElement', jsxFragment: 'React.Fragment' })).code
+
+function callbackHarness({ search = '', pending = null, exchange } = {}) {
+  const states = []
+  let stateIndex = 0
+  const effects = []
+  const navigations = []
+  let exchanged = 0
+  const context = {
+    React, JSON, URLSearchParams,
+    useState: (initial) => {
+      const index = stateIndex++
+      if (!(index in states)) states[index] = initial
+      return [states[index], (value) => { states[index] = typeof value === 'function' ? value(states[index]) : value }]
+    },
+    useEffect: (callback) => { effects.push(callback) },
+    useBrand: () => ({ product_name: 'Luma', name: 'Luma', tagline: '个人助理', logo_url: '', primary_color: '#2563EB' }),
+    Brand: () => React.createElement('div'),
+    exchangeSsoTicket: async (...args) => { exchanged += 1; if (exchange) return exchange(...args); return { access_token: 'callback-token', authenticated: true } },
+    sessionStorage: { getItem: () => pending, setItem() {}, removeItem() {} },
+    window: { location: { search, assign() {} }, setTimeout: (fn) => { fn() } },
+    navigate: (...args) => navigations.push(args),
+    API_URL: '/api/v1',
+    ACCESS_TOKEN_STORAGE_KEY: 'luma_access_token',
+    startSsoLogin: async () => ({ url: 'https://login.other.test/start', state: 'state-token-example' }),
+  }
+  vm.createContext(context)
+  vm.runInContext(callbackCode, context)
+  const render = () => { stateIndex = 0; return context.SsoCallbackPage() }
+  render()
+  return { effects, navigations, exchanged: () => exchanged, markup: () => renderToStaticMarkup(render()) }
+}
+
+async function settleCallback(page) {
+  page.effects[0]()
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
+test('a pending sso state fails when the callback drops it', async () => {
+  const pending = JSON.stringify({ state: 'expected-state-value', next: '/app' })
+  const dropped = callbackHarness({ search: '?ticket=ticket-token-ok-16', pending })
+  await settleCallback(dropped)
+  assert.equal(dropped.exchanged(), 0)
+  assert.match(dropped.markup(), /登录交易已失效/)
+  assert.deepEqual(dropped.navigations, [])
+
+  const matched = callbackHarness({ search: '?ticket=ticket-token-ok-16&state=expected-state-value', pending })
+  await settleCallback(matched)
+  assert.equal(matched.exchanged(), 1)
+  assert.deepEqual(matched.navigations, [['/app']])
+
+  const portal = callbackHarness({ search: '?ticket=ticket-token-ok-16' })
+  await settleCallback(portal)
+  assert.equal(portal.exchanged(), 1)
+  assert.deepEqual(portal.navigations, [['/app']])
+})
