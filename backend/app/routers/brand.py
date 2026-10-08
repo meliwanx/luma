@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
@@ -24,8 +24,11 @@ _PUBLIC_FIELDS = (
 
 
 @router.get("/api/v1/brand")
-def read_brand() -> Dict[str, str]:
-    """Return the display brand. No session is required."""
+def read_brand() -> Dict[str, Any]:
+    """Return the display brand. No session is required.
+
+    ``logo_url`` is null when the deployment did not configure one.
+    """
     payload = get_brand().public_dict()
     return {field: payload[field] for field in _PUBLIC_FIELDS}
 

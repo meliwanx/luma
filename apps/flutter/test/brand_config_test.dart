@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -8,6 +9,7 @@ import 'package:luma_client/api.dart';
 import 'package:luma_client/auth.dart';
 import 'package:luma_client/brand.dart';
 import 'package:luma_client/home.dart';
+import 'package:luma_client/preferences.dart';
 import 'package:luma_client/theme.dart';
 import 'package:luma_client/views/chat.dart';
 import 'package:luma_client/views/feed.dart';
@@ -30,10 +32,10 @@ void main() {
       'logo_url': '   ',
     });
     expect(merged.name, 'Luma');
-    expect(merged.tagline, isEmpty);
+    expect(merged.tagline, BrandConfig.defaultTagline);
     expect(merged.primary, BrandConfig.defaultPrimary);
     expect(merged.logoUrl, isNull);
-    expect(merged.aboutTitle, 'Luma 个人助理');
+    expect(merged.aboutTitle, 'Luma ${BrandConfig.defaultTagline}');
     expect(merged.showsScriptLogo, isTrue);
     expect(parseBrandColor('#abc'), const Color(0xFFAABBCC));
     expect(parseBrandColor('112233'), const Color(0xFF112233));
@@ -58,7 +60,7 @@ void main() {
     expect(partial.primary, BrandConfig.defaultPrimary);
   });
 
-  test('failed brand request restores build-time defaults', () async {
+  test('failed brand request keeps the last merged brand', () async {
     final api = AssistantApi(
       token: 'stale-token',
       client: MockClient((request) async {
@@ -79,13 +81,13 @@ void main() {
     );
     addTearDown(controller.dispose);
     await controller.refresh();
-    expect(controller.value.name, BrandConfig.buildTime.name);
-    expect(controller.value.tagline, BrandConfig.buildTime.tagline);
-    expect(controller.value.primary, BrandConfig.buildTime.primary);
+    expect(controller.value.name, '旧品牌');
+    expect(controller.value.tagline, '旧');
+    expect(controller.value.primary, const Color(0xFF010101));
   });
 
   test(
-    'successful brand payload overrides and a later failure rolls back',
+    'successful brand payload overrides and a later failure keeps it',
     () async {
       var fail = false;
       final api = AssistantApi(
@@ -107,8 +109,8 @@ void main() {
       expect(controller.value.tagline, BrandConfig.buildTime.tagline);
       fail = true;
       await controller.refresh();
-      expect(controller.value.name, 'Luma');
-      expect(controller.value.primary, BrandConfig.defaultPrimary);
+      expect(controller.value.name, '测试品牌');
+      expect(controller.value.primary, const Color(0xFF336699));
     },
   );
 
@@ -351,6 +353,103 @@ void main() {
     } finally {
       semantics.dispose();
     }
+  });
+
+  testWidgets('聚光测试 shows the title, remote logo and brand accent', (
+    tester,
+  ) async {
+    final brand = BrandController(
+      initial: const BrandConfig(
+        name: '聚光测试',
+        tagline: '你的个人 AI 助理',
+        primary: Color(0xFF1E66F5),
+        logoUrl: 'https://example.com/juguang-logo.png',
+      ),
+    );
+    addTearDown(brand.dispose);
+    final preferences = LumaPreferences();
+    addTearDown(preferences.dispose);
+    await tester.pumpWidget(
+      BrandScope(
+        controller: brand,
+        child: LumaPreferencesScope(
+          preferences: preferences,
+          child: Builder(
+            builder: (context) {
+              final accent = preferences.value.accent ?? context.brand.primary;
+              return MaterialApp(
+                title: context.brand.name,
+                theme: buildLumaTheme(Brightness.light, accent: accent),
+                home: Scaffold(
+                  appBar: AppBar(title: Text(context.brand.aboutTitle)),
+                  body: const LumaLogo(width: 120),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(app.title, '聚光测试');
+    expect(app.theme!.colorScheme.primary, const Color(0xFF1E66F5));
+    expect(find.text('聚光测试 你的个人 AI 助理'), findsOneWidget);
+    final image = tester.widget<Image>(find.byType(Image));
+    expect(image.image, isA<NetworkImage>());
+    expect(
+      (image.image as NetworkImage).url,
+      'https://example.com/juguang-logo.png',
+    );
+    final fallback = image.errorBuilder!(
+      tester.element(find.byType(Image)),
+      Exception('offline'),
+      StackTrace.empty,
+    );
+    await tester.pumpWidget(
+      BrandScope(
+        controller: brand,
+        child: MaterialApp(home: Scaffold(body: fallback)),
+      ),
+    );
+    expect(find.text('聚光测试'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CustomPaint &&
+            widget.painter.runtimeType.toString().contains('LumaLogo'),
+      ),
+      findsNothing,
+    );
+    expect(find.text('Luma'), findsNothing);
+
+    FlutterSecureStorage.setMockInitialValues({});
+    await preferences.setAccent(const Color(0xFF8B5CF6));
+    await tester.pumpWidget(
+      BrandScope(
+        controller: brand,
+        child: LumaPreferencesScope(
+          preferences: preferences,
+          child: Builder(
+            builder: (context) => MaterialApp(
+              theme: buildLumaTheme(
+                Brightness.light,
+                accent: preferences.value.accent ?? context.brand.primary,
+              ),
+              home: const SizedBox.shrink(),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(
+      tester
+          .widget<MaterialApp>(find.byType(MaterialApp))
+          .theme!
+          .colorScheme
+          .primary,
+      const Color(0xFF8B5CF6),
+    );
   });
 }
 

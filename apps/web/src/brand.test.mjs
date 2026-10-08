@@ -19,7 +19,7 @@ const base = brandFromEnv({})
 test('build defaults come from empty env and explicit Vite values override them', () => {
   assert.equal(base.product_name, 'Luma')
   assert.equal(base.name, 'Luma')
-  assert.equal(base.tagline, '个人助理')
+  assert.equal(base.tagline, '你的个人 AI 助理')
   assert.equal(base.primary_color, '#2563EB')
   assert.equal(base.logo_url, '')
   assert.equal(buildBrand().product_name, 'Luma')
@@ -27,10 +27,12 @@ test('build defaults come from empty env and explicit Vite values override them'
     VITE_BRAND_PRODUCT_NAME: '  Northstar  ',
     VITE_BRAND_TAGLINE: 'stay with it',
     VITE_BRAND_PRIMARY_COLOR: '#abc',
+    VITE_BRAND_LOGO_URL: ' https://cdn.example/logo.png ',
   })
   assert.equal(custom.product_name, 'Northstar')
   assert.equal(custom.tagline, 'stay with it')
   assert.equal(custom.primary_color, '#abc')
+  assert.equal(custom.logo_url, 'https://cdn.example/logo.png')
   assert.equal(brandFromEnv({ VITE_BRAND_PRIMARY_COLOR: 'red' }).primary_color, '#2563EB')
 })
 
@@ -62,17 +64,17 @@ test('runtime brand fields override build defaults and a failed request keeps th
   assert.equal(badJson.product_name, 'Luma')
   const applied = await resolveBrand(base, async () => ({ ok: true, json: async () => ({ name: '测试品牌', primary_color: '#abcdef' }) }), '/api/v1/brand')
   assert.equal(applied.product_name, '测试品牌')
-  assert.equal(applied.tagline, '个人助理')
+  assert.equal(applied.tagline, '你的个人 AI 助理')
   assert.equal(applied.primary_color, '#abcdef')
 })
 
 test('document title follows the brand and omits Luma for another product', () => {
   const brand = mergeBrand(base, { name: '测试品牌' })
-  assert.equal(brandTitle(brand), '测试品牌 · 个人助理')
+  assert.equal(brandTitle(brand), '测试品牌 · 你的个人 AI 助理')
   assert.equal(brandTitle(brand).includes('Luma'), false)
   const target = { title: '', documentElement: { style: { props: {}, setProperty(name, value) { this.props[name] = value } } } }
   applyBrandToDocument(brand, target)
-  assert.equal(target.title, '测试品牌 · 个人助理')
+  assert.equal(target.title, '测试品牌 · 你的个人 AI 助理')
   assert.equal(target.documentElement.style.props['--brand-primary'], '#2563EB')
 })
 

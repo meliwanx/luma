@@ -4,12 +4,33 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val brandAppId =
-    (findProperty("brandAppId") as? String)?.takeIf { it.isNotBlank() }
-        ?: "app.luma.client"
+val brandAppIdRaw =
+    (findProperty("brandAppId") as? String)?.trim().orEmpty()
+val allowDefaultBrand =
+    (findProperty("allowDefaultBrand") as? String)?.trim() == "1" ||
+        System.getenv("ALLOW_DEFAULT_BRAND") == "1"
+val brandAppId = brandAppIdRaw.ifBlank { "app.luma.client" }
 val brandDisplayName =
     (findProperty("brandDisplayName") as? String)?.takeIf { it.isNotBlank() }
         ?: "Luma"
+
+gradle.taskGraph.whenReady {
+    val releasing = allTasks.any { task ->
+        val name = task.name
+        name.contains("Release") && !name.contains("Test")
+    }
+    if (!releasing || allowDefaultBrand) return@whenReady
+    if (brandAppIdRaw.isBlank()) {
+        throw GradleException(
+            "发布构建必须设置 -PbrandAppId。若要使用开源默认 app.luma.client，请设置 -PallowDefaultBrand=1 或 ALLOW_DEFAULT_BRAND=1。",
+        )
+    }
+    if (brandAppIdRaw == "app.luma.client") {
+        throw GradleException(
+            "brandAppId 不能使用开源默认 app.luma.client，除非设置 -PallowDefaultBrand=1 或 ALLOW_DEFAULT_BRAND=1。",
+        )
+    }
+}
 
 android {
     namespace = "com.example.luma_client"

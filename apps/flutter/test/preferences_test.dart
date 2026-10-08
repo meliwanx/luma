@@ -91,7 +91,7 @@ void main() {
     addTearDown(preferences.dispose);
     await preferences.load();
     expect(preferences.value.themeMode, ThemeMode.system);
-    expect(preferences.value.accent, lumaAccents.first.color);
+    expect(preferences.value.accent, isNull);
     expect(preferences.value.messageFontSize, 16);
   });
 

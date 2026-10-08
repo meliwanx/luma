@@ -26,12 +26,14 @@ enum MessageFontSize { small, standard, large }
 class AppearancePreferences {
   const AppearancePreferences({
     this.themeMode = ThemeMode.system,
-    this.accent = const Color(0xFF1F7AEC),
+    this.accent,
     this.fontSize = MessageFontSize.standard,
   });
 
   final ThemeMode themeMode;
-  final Color accent;
+
+  /// Null until the person picks a swatch. The theme then uses the brand color.
+  final Color? accent;
   final MessageFontSize fontSize;
 
   double get messageFontSize {
@@ -72,17 +74,19 @@ class LumaPreferences extends ValueNotifier<AppearancePreferences> {
       final theme = await _storage.read(key: '${_prefix}theme');
       final accent = await _storage.read(key: '${_prefix}accent');
       final fontSize = await _storage.read(key: '${_prefix}fontSize');
+      Color? chosen;
+      for (final item in lumaAccents) {
+        if (item.value == accent) {
+          chosen = item.color;
+          break;
+        }
+      }
       value = AppearancePreferences(
         themeMode: ThemeMode.values.firstWhere(
           (item) => item.name == theme,
           orElse: () => ThemeMode.system,
         ),
-        accent: lumaAccents
-            .firstWhere(
-              (item) => item.value == accent,
-              orElse: () => lumaAccents.first,
-            )
-            .color,
+        accent: chosen,
         fontSize: MessageFontSize.values.firstWhere(
           (item) => item.name == fontSize,
           orElse: () => MessageFontSize.standard,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'brand.dart';
 import 'preferences.dart';
 
 /// Muse-style design tokens shared with the web client (`--mc-*` in
@@ -65,7 +66,7 @@ class MuseColors extends ThemeExtension<MuseColors> {
     focus: Color(0xFFCFD4DA),
     link: Color(0xFF1F6FD6),
     green: Color(0xFF22A559),
-    accent: Color(0xFF1F7AEC),
+    accent: BrandConfig.defaultPrimary,
     danger: Color(0xFFE5484D),
     warn: Color(0xFFF59E0B),
   );
@@ -86,7 +87,7 @@ class MuseColors extends ThemeExtension<MuseColors> {
     focus: Color(0xFF3A3A3A),
     link: Color(0xFF6AA8FF),
     green: Color(0xFF2FBF5B),
-    accent: Color(0xFF1F7AEC),
+    accent: BrandConfig.defaultPrimary,
     danger: Color(0xFFE5484D),
     warn: Color(0xFFF59E0B),
   );
@@ -166,7 +167,7 @@ extension MuseThemeContext on BuildContext {
 
 // Compatibility constants used by code that predates the token extension.
 class LumaColors {
-  static const lime = Color(0xFF1F7AEC);
+  static const lime = BrandConfig.defaultPrimary;
   static const canvas = Color(0xFFFFFFFF);
   static const card = Color(0xFFF2F3F5);
   static const muted = Color(0xFF868C95);
@@ -178,9 +179,14 @@ const card = LumaColors.card;
 const muted = LumaColors.muted;
 
 ThemeData buildLumaTheme(Brightness brightness, {Color? accent}) {
+  // A stored swatch wins. Otherwise follow the current brand primary.
+  final resolved =
+      accent ??
+      LumaPreferences.instance.value.accent ??
+      BrandController.instance.value.primary;
   final colors =
       (brightness == Brightness.dark ? MuseColors.dark : MuseColors.light)
-          .copyWith(accent: accent ?? LumaPreferences.instance.value.accent);
+          .copyWith(accent: resolved);
   final base = ThemeData(useMaterial3: true, brightness: brightness);
   return base.copyWith(
     scaffoldBackgroundColor: colors.bg,

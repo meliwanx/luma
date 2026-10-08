@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'api.dart';
 
 /// Build-time brand defaults. `--dart-define=BRAND_PRODUCT_NAME` (default
-/// `Luma`), `BRAND_TAGLINE` (default empty) and `BRAND_PRIMARY_COLOR`
-/// (default `#2563EB`). A successful `GET /api/v1/brand` overrides them.
+/// `Luma`), `BRAND_TAGLINE` (default `你的个人 AI 助理`) and
+/// `BRAND_PRIMARY_COLOR` (default `#2563EB`). A successful `GET /api/v1/brand`
+/// overrides them.
 class BrandConfig {
   const BrandConfig({
     required this.name,
@@ -14,13 +15,17 @@ class BrandConfig {
   });
 
   static const defaultName = 'Luma';
+  static const defaultTagline = '你的个人 AI 助理';
   static const defaultPrimary = Color(0xFF2563EB);
 
   static const _nameEnv = String.fromEnvironment(
     'BRAND_PRODUCT_NAME',
     defaultValue: defaultName,
   );
-  static const _taglineEnv = String.fromEnvironment('BRAND_TAGLINE');
+  static const _taglineEnv = String.fromEnvironment(
+    'BRAND_TAGLINE',
+    defaultValue: defaultTagline,
+  );
   static const _colorEnv = String.fromEnvironment(
     'BRAND_PRIMARY_COLOR',
     defaultValue: '#2563EB',
@@ -28,7 +33,7 @@ class BrandConfig {
 
   static final BrandConfig buildTime = BrandConfig(
     name: _nameEnv.trim().isEmpty ? defaultName : _nameEnv.trim(),
-    tagline: _taglineEnv.trim(),
+    tagline: _taglineEnv.trim().isEmpty ? defaultTagline : _taglineEnv.trim(),
     primary: parseBrandColor(_colorEnv) ?? defaultPrimary,
   );
 
@@ -41,10 +46,10 @@ class BrandConfig {
   /// a bold text logo in the primary color.
   bool get showsScriptLogo => name == defaultName;
 
-  /// About row. An empty tagline keeps the historical 「个人助理」 suffix.
+  /// About row. An empty tagline uses the shared default slogan.
   String get aboutTitle {
     final line = tagline.trim();
-    if (line.isEmpty) return '$name 个人助理';
+    if (line.isEmpty) return '$name $defaultTagline';
     return '$name $line';
   }
 
@@ -60,16 +65,25 @@ class BrandConfig {
       'primary_color',
       'primaryColor',
     ]);
-    final logo = _stringField(json, const ['logo_url', 'logoUrl']);
     return BrandConfig(
       name: name ?? this.name,
       tagline: tagline ?? this.tagline,
       primary: colorText == null
           ? primary
           : (parseBrandColor(colorText) ?? primary),
-      logoUrl: logo ?? logoUrl,
+      logoUrl: _logoUrl(json, logoUrl),
     );
   }
+}
+
+/// A present `logo_url` / `logoUrl` replaces the previous value. Null or a
+/// blank string clears it so the client falls back to the built-in mark.
+String? _logoUrl(Map<String, dynamic> json, String? current) {
+  const keys = ['logo_url', 'logoUrl'];
+  if (!keys.any(json.containsKey)) return current;
+  final value = json.containsKey('logo_url') ? json['logo_url'] : json['logoUrl'];
+  if (value is String && value.trim().isNotEmpty) return value.trim();
+  return null;
 }
 
 String? _stringField(Map<String, dynamic> json, List<String> keys) {
@@ -120,14 +134,14 @@ class BrandController extends ChangeNotifier {
   BrandConfig get value => _value;
 
   /// Applies a successful payload onto the build-time defaults. A failed
-  /// request drops any previous override and restores those defaults.
+  /// request keeps the last merged brand, matching the web client.
   Future<void> refresh() async {
     final fetch = load;
     if (fetch == null) return;
     try {
       _value = BrandConfig.buildTime.merge(await fetch());
     } catch (_) {
-      _value = BrandConfig.buildTime;
+      // Keep _value. The next successful response can replace it.
     }
     if (!_disposed) notifyListeners();
   }
@@ -181,6 +195,38 @@ class LumaLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brand = BrandScope.of(context);
+    final url = brand.logoUrl?.trim() ?? '';
+    if (url.isNotEmpty) {
+      return Semantics(
+        label: brand.name,
+        image: true,
+        child: SizedBox(
+          width: width,
+          height: width / aspectRatio,
+          child: Image.network(
+            url,
+            fit: BoxFit.contain,
+            gaplessPlayback: true,
+            excludeFromSemantics: true,
+            errorBuilder: (context, error, stackTrace) =>
+                _BrandMark(width: width, color: color, brand: brand),
+          ),
+        ),
+      );
+    }
+    return _BrandMark(width: width, color: color, brand: brand);
+  }
+}
+
+class _BrandMark extends StatelessWidget {
+  const _BrandMark({required this.width, required this.brand, this.color});
+
+  final double width;
+  final BrandConfig brand;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
     if (!brand.showsScriptLogo) {
       final ink = color ?? brand.primary;
       return Semantics(
@@ -189,7 +235,7 @@ class LumaLogo extends StatelessWidget {
         excludeSemantics: true,
         child: SizedBox(
           width: width,
-          height: width / aspectRatio,
+          height: width / LumaLogo.aspectRatio,
           child: FittedBox(
             fit: BoxFit.contain,
             alignment: Alignment.center,
@@ -217,7 +263,7 @@ class LumaLogo extends StatelessWidget {
       image: true,
       child: SizedBox(
         width: width,
-        height: width / aspectRatio,
+        height: width / LumaLogo.aspectRatio,
         child: CustomPaint(painter: _LumaLogoPainter(ink)),
       ),
     );
