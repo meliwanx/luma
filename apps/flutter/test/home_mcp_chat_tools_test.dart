@@ -11,9 +11,9 @@ import 'package:luma_client/views/chat.dart';
 const _secret = 'chat-tools-private-fixture';
 const _reference = '{{secret:sec_0123456789abcdef}}';
 const _config =
-    '{"mcpServers":{"sim-data":{"type":"http","url":"https://example.com/mcp","headers":{"Authorization":"Bearer $_secret"}}}}';
+    '{"mcpServers":{"sample-data":{"type":"http","url":"https://example.com/mcp","headers":{"Authorization":"Bearer $_secret"}}}}';
 const _saved =
-    '{"mcpServers":{"sim-data":{"type":"http","url":"https://example.com/mcp","headers":{"Authorization":"$_reference"}}}}';
+    '{"mcpServers":{"sample-data":{"type":"http","url":"https://example.com/mcp","headers":{"Authorization":"$_reference"}}}}';
 const _toolEvent = <String, dynamic>{
   'call_id': 'call-1',
   'tool': 'luma.connectors.add_mcp',
@@ -135,7 +135,7 @@ void main() {
     () {
       final display = displaySecretReferences('帮我配置 $_saved 谢谢');
       expect(display, contains('••••••（已加密保存）'));
-      expect(display, contains('sim-data'));
+      expect(display, contains('sample-data'));
       expect(display, contains('https://example.com/mcp'));
       expect(display, isNot(contains(_reference)));
       expect(_saved, contains(_reference));
@@ -183,7 +183,7 @@ void main() {
 
     api.events.add(
       const AssistantSseEvent('done', {
-        'content': '已连接 sim-data，可以开始查询了。',
+        'content': '已连接 sample-data，可以开始查询了。',
         'status': 'complete',
         'metadata': {
           'tool_calls': [_toolEvent],
@@ -192,7 +192,7 @@ void main() {
     );
     await api.events.close();
     await tester.pumpAndSettle();
-    expect(find.text('已连接 sim-data，可以开始查询了。'), findsOneWidget);
+    expect(find.text('已连接 sample-data，可以开始查询了。'), findsOneWidget);
     expect(_chat(tester).messages.toString(), isNot(contains(_secret)));
     await tester.pumpWidget(const SizedBox.shrink());
   });

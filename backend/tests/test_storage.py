@@ -22,12 +22,12 @@ from tests import pg  # noqa: F401
 
 from app.storage import (
     COSStorage,
-    FileServiceStorage,
     LocalStorage,
     StorageConfigurationError,
     clear_storage_cache,
     get_storage,
 )
+from plugins_examples.fileservice import FileServiceStorage
 from app.upload_limit import UploadSizeLimitMiddleware
 from app import main
 
@@ -137,7 +137,7 @@ class FileServiceStorageTests(unittest.TestCase):
     def test_invalid_id_and_secret_redaction(self):
         with self.assertRaises(ValueError):
             self.storage._remote_id("fs:0")
-        with self.assertLogs("app.storage", level=logging.INFO) as captured:
+        with self.assertLogs("plugins_examples.fileservice.storage", level=logging.INFO) as captured:
             self.storage.delete("fs:42")
         joined = "\n".join(captured.output)
         self.assertNotIn("app-secret", joined)
@@ -175,7 +175,7 @@ class StorageConfigurationTests(unittest.TestCase):
         clear_storage_cache()
 
     def test_missing_cos_configuration_names_only(self):
-        values = {"FILE_STORAGE": "cos", "COS_SECRET_ID": "", "COS_SECRET_KEY": "", "COS_BUCKET": ""}
+        values = {"FILE_STORAGE": "cos", "COS_SECRET_ID": "", "COS_SECRET_KEY": "", "COS_BUCKET": "", "COS_REGION": ""}
         with patch.dict(os.environ, values, clear=False):
             with self.assertRaises(StorageConfigurationError) as error:
                 get_storage()
@@ -183,6 +183,7 @@ class StorageConfigurationTests(unittest.TestCase):
         self.assertIn("COS_SECRET_ID", message)
         self.assertIn("COS_SECRET_KEY", message)
         self.assertIn("COS_BUCKET", message)
+        self.assertIn("COS_REGION", message)
         self.assertNotIn("s3cr3t", message)
 
 

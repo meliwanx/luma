@@ -9,9 +9,11 @@ clients receive safe file metadata without provider credentials.
 | --- | --- |
 | `local` | `ASSISTANT_FILE_ROOT`; Compose mounts the persistent `filesdata` volume |
 | `cos` | `COS_SECRET_ID`, `COS_SECRET_KEY`, `COS_REGION`, `COS_BUCKET`; optional `COS_PREFIX` |
-| `fileservice` | HTTPS `FILE_SERVICE_URL`, `FILE_SERVICE_APP_KEY`, `FILE_SERVICE_APP_SECRET`; optional folder ID and request timeout |
+| `fileservice` | Example plugin `plugins_examples.fileservice`, not loaded unless `LUMA_PLUGINS` names it. Then requires HTTPS `FILE_SERVICE_URL`, `FILE_SERVICE_APP_KEY`, `FILE_SERVICE_APP_SECRET`; optional folder ID and request timeout |
 
-This release does not contain an S3-compatible adapter. A file-service adapter
+`local` and `cos` are the built-in backends. `COS_REGION` is required when
+`FILE_STORAGE=cos` and has no default region. This release does not contain an
+S3-compatible adapter. The file-service plugin
 can connect to a separately operated HTTPS service that implements the existing
 `/api/fs/` contract. Its requests use application credentials and timestamped
 HMAC signatures. Keep `FILE_SERVICE_ALLOW_HTTP=false` for deployments.

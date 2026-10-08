@@ -1,6 +1,7 @@
 """Focused unit coverage for model-visible sandbox file and preview tools."""
 
 import asyncio
+import os
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -166,7 +167,9 @@ class SandboxToolsTests(unittest.TestCase):
 
     def test_preview_requires_trusted_https_host(self):
         box = _Box()
-        with patch("app.agent.tools._sandbox_box", return_value=box):
+        with patch("app.agent.tools._sandbox_box", return_value=box), patch.dict(
+            os.environ, {"SANDBOX_PREVIEW_HOST_SUFFIX": ".tencentags.com"}, clear=False
+        ):
             result = self.run_async(_sandbox_preview(AgentContext("owner"), {"port": 8080}))
         self.assertEqual(result.status, "ok")
         self.assertTrue(result.data["url"].startswith("https://"))

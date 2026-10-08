@@ -21,6 +21,7 @@ from . import provider
 from .admin import router as admin_router
 from .config import APP_VERSION, WEB_ROOT, cors_origins, env_int
 from .db import ensure_db
+from .plugins import load_plugins, shutdown_plugins, startup_plugins
 from .storage import get_storage
 from . import runtime as runtime_module
 from .runtime import worker_loop
@@ -62,6 +63,7 @@ async def lifespan(_: FastAPI):
     limiter = anyio.to_thread.current_default_thread_limiter()
     limiter.total_tokens = max(1, env_int("THREADPOOL_SIZE", 64))
     ensure_db()
+    await startup_plugins()
     await generation.startup_recover()
     runtime_module.start_runtime()
     worker_stop = asyncio.Event()
@@ -83,6 +85,7 @@ async def lifespan(_: FastAPI):
         # Cancelling an asyncio.to_thread await does not stop its SQL thread.
         # Let both loops finish their current pass before exiting the lifespan.
         await asyncio.gather(worker, scheduler, return_exceptions=True)
+        await shutdown_plugins()
         telemetry_task.cancel()
         browser_task.cancel()
         try:
@@ -188,6 +191,7 @@ app.include_router(memories.legacy_router)
 app.include_router(export.router)
 app.include_router(runtime.router)
 app.include_router(admin_router)
+load_plugins(app)
 
 if WEB_ROOT.exists():
     app.mount("/app", StaticFiles(directory=WEB_ROOT, html=True), name="web-app")

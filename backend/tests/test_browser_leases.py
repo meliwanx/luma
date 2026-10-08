@@ -1,6 +1,7 @@
 """Browser lease coverage using mocked E2B without starting cloud resources."""
 
 import json
+import os
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -88,6 +89,11 @@ def _box(identifier):
 
 
 class BrowserLeaseTests(unittest.TestCase):
+    def setUp(self):
+        self._suffix = patch.dict(os.environ, {"SANDBOX_PREVIEW_HOST_SUFFIX": ".tencentags.com"}, clear=False)
+        self._suffix.start()
+        self.addCleanup(self._suffix.stop)
+
     def _provider(self):
         boxes = {}
 

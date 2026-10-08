@@ -277,7 +277,11 @@ class VoiceRouteTests(unittest.TestCase):
         for failure, status in ((MockWebSocket([failed]), 502), (TimeoutError("private-upstream-token"), 504)):
             options = {"side_effect": failure} if isinstance(failure, BaseException) else {"return_value": failure}
             with self.subTest(status=status), patch.dict(
-                os.environ, {"BAILIAN_ASR_API_KEY": "test-only-key"}, clear=False
+                os.environ, {
+                    "BAILIAN_ASR_API_KEY": "test-only-key",
+                    "BAILIAN_ASR_BASE_URL": "wss://mock-asr.example/ws",
+                    "BAILIAN_ASR_MODEL": "test-asr-model",
+                }, clear=False
             ), patch("websocket.create_connection", **options):
                 response = self.post_audio(mode="raw")
             self.assertEqual(response.status_code, status)
@@ -300,6 +304,18 @@ class VoiceRouteTests(unittest.TestCase):
 
 
 class VoiceServiceTests(unittest.TestCase):
+    def test_missing_endpoint_names_required_settings(self):
+        with patch.dict(os.environ, {
+            "BAILIAN_ASR_API_KEY": "test-only-key",
+            "BAILIAN_ASR_BASE_URL": "",
+            "BAILIAN_ASR_MODEL": "",
+        }, clear=False):
+            with self.assertRaises(voice_service.VoiceInputError) as caught:
+                asyncio.run(voice_service.transcribe(wav_audio(), "voice.wav", "audio/wav"))
+        self.assertEqual(caught.exception.status_code, 503)
+        self.assertIn("BAILIAN_ASR_BASE_URL", str(caught.exception))
+        self.assertIn("BAILIAN_ASR_MODEL", str(caught.exception))
+
     def test_transcribe_obeys_duplex_protocol_and_environment_configuration(self):
         audio = wav_audio(sample_rate=8000)
         websocket = MockWebSocket([

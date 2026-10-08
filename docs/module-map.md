@@ -22,6 +22,7 @@ main -> routers -> services -> db / auth / provider / storage / runtime
 | `app/services/chat.py`, `generation.py`, `context.py` | Conversation persistence, streaming and bounded model context |
 | `app/services/memory.py` | Visible user memories and bounded background extraction |
 | `app/services/files.py`, `app/storage.py` | Upload limits, private storage, download and cleanup |
+| `app/plugins.py` | Optional storage, routes, MCP presets and startup hooks from `LUMA_PLUGINS` |
 | `app/services/export.py` | Portable per-user data export without credentials |
 | `app/agent/` | Tool registry, policy checks and deterministic agent loop |
 | `app/mcp.py`, `app/services/mcp_catalog.py` | Public HTTPS connectors and encrypted tokens |
