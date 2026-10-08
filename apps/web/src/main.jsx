@@ -19,7 +19,7 @@ import { startIdeaSession } from './content-sessions.js'
 import { containsSecretJson, displaySecretReferences, optimisticChatContent, toolStatusKey } from './mcp-chat.js'
 import { SessionGenerations, disconnectGeneration, generationError, isGeneratingMessage, latestGeneratingMessage } from './session-generations.js'
 import { createBottomFollower } from './chat-scroll.js'
-import { loadAuthConfig, loginWithPassword, registerWithPassword } from './password-login.js'
+import { exchangeSsoTicket, loadAuthProviders, loginWithPassword, loginWithSsoPassword, registerWithPassword, startSsoLogin } from './password-login.js'
 import AccountSettings from './account-settings.jsx'
 import { subscribeDesktopCommands } from './desktop-commands.js'
 import './styles.css'
@@ -2691,11 +2691,21 @@ function LoginPage({ onAuthenticated }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [configError, setConfigError] = useState('')
+  const [providers, setProviders] = useState([{ name: 'password', label: '账号密码', kind: 'password' }])
+  const [accountLabel, setAccountLabel] = useState('账号')
+  const [ssoLabel, setSsoLabel] = useState('单点登录')
+  const [ssoAccount, setSsoAccount] = useState('')
+  const [ssoPassword, setSsoPassword] = useState('')
   const submittingRef = useRef(false)
   useEffect(() => {
     let active = true
-    loadAuthConfig(API_URL).then((value) => { if (active) setConfig(value) })
-      .catch((failure) => { if (active) setConfigError(failure.message) })
+    loadAuthProviders(API_URL).then((value) => {
+      if (!active) return
+      setConfig({ registration_open: value.registration_open === true, requires_invite: value.requires_invite === true })
+      setProviders(Array.isArray(value.providers) ? value.providers : [])
+      setAccountLabel(value.account_label || '账号')
+      setSsoLabel(value.sso_label || '单点登录')
+    }).catch((failure) => { if (active) setConfigError(failure.message) })
     return () => { active = false }
   }, [])
   function updateField(name, value) { setFields((current) => ({ ...current, [name]: value })) }
@@ -2726,13 +2736,35 @@ function LoginPage({ onAuthenticated }) {
       setBusy(false)
     }
   }
+  async function submitSsoPassword(event) {
+    event.preventDefault()
+    if (submittingRef.current) return
+    submittingRef.current = true
+    setBusy(true)
+    setError('')
+    try {
+      const payload = await loginWithSsoPassword(API_URL, ssoAccount, ssoPassword)
+      if (payload.access_token) sessionStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, payload.access_token)
+      setSsoPassword('')
+      onAuthenticated()
+      navigate('/app', { replace: true })
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : '登录服务暂时不可用')
+    } finally {
+      submittingRef.current = false
+      setBusy(false)
+    }
+  }
   const registering = tab === 'register' && config.registration_open
+  const passwordProvider = providers.find((item) => item?.kind === 'password')
+  const redirectProvider = providers.find((item) => item?.kind === 'redirect')
+  const credentialsProvider = providers.find((item) => item?.kind === 'credentials')
   return <div className="muse-auth-page">
     <header className="muse-auth-nav"><button className="muse-brand" onClick={() => navigate('/')}><LumaLogo label="Luma" /></button><span>你的个人空间 <button onClick={() => navigate('/')}>了解 Luma</button></span></header>
     <main className="muse-auth-main">
       <div className="muse-auth-icon"><LumaLogo /></div><span className="muse-kicker">YOUR PERSONAL SPACE</span><h1>{registering ? '注册 Luma' : '登录 Luma'}</h1><p>你的数据存放在你部署的服务器上。</p>
-      <div className="muse-auth-tabs" role="tablist" aria-label="账号认证"><button id="auth-login-tab" type="button" role="tab" aria-selected={!registering} aria-controls="auth-form" disabled={busy} onClick={() => selectTab('login')}>登录</button>{config.registration_open && <button id="auth-register-tab" type="button" role="tab" aria-selected={registering} aria-controls="auth-form" disabled={busy} onClick={() => selectTab('register')}>注册</button>}</div>
-      <form id="auth-form" className="muse-auth-form" role="tabpanel" aria-labelledby={registering ? 'auth-register-tab' : 'auth-login-tab'} onSubmit={submit}>
+      {passwordProvider && <div className="muse-auth-tabs" role="tablist" aria-label="账号认证"><button id="auth-login-tab" type="button" role="tab" aria-selected={!registering} aria-controls="auth-form" disabled={busy} onClick={() => selectTab('login')}>登录</button>{config.registration_open && <button id="auth-register-tab" type="button" role="tab" aria-selected={registering} aria-controls="auth-form" disabled={busy} onClick={() => selectTab('register')}>注册</button>}</div>}
+      {passwordProvider && <form id="auth-form" className="muse-auth-form" role="tabpanel" aria-labelledby={registering ? 'auth-register-tab' : 'auth-login-tab'} onSubmit={submit}>
         {registering ? <>
           <label htmlFor="register-username">用户名<input id="register-username" name="username" type="text" autoComplete="username" placeholder="3–32 位字母、数字、_.-" minLength={3} maxLength={32} pattern="[a-zA-Z0-9_.\-]{3,32}" required disabled={busy} value={fields.username} onChange={(event) => updateField('username', event.target.value)} /></label>
           <label htmlFor="register-email">邮箱（可选）<input id="register-email" name="email" type="email" autoComplete="email" disabled={busy} value={fields.email} onChange={(event) => updateField('email', event.target.value)} /></label>
@@ -2745,13 +2777,49 @@ function LoginPage({ onAuthenticated }) {
           {config.requires_invite && <label htmlFor="register-invite-code">邀请码<input id="register-invite-code" name="invite_code" type="text" autoComplete="off" required disabled={busy} value={fields.invite_code} onChange={(event) => updateField('invite_code', event.target.value)} /></label>}
         </>}
         <button type="submit" className="muse-auth-button muse-auth-submit" disabled={busy}>{busy ? (registering ? '注册中…' : '登录中…') : (registering ? '注册' : '登录')}<b aria-hidden="true">→</b></button>
-        {error && <p className="muse-auth-error" role="alert">{error}</p>}
-      </form>
+        {error && !credentialsProvider && <p className="muse-auth-error" role="alert">{error}</p>}
+      </form>}
+      {redirectProvider && <button type="button" className="muse-auth-button muse-auth-submit" disabled={busy} onClick={() => beginSsoLogin(redirectProvider, setError)}>{redirectProvider.label || ssoLabel}<b aria-hidden="true">→</b></button>}
+      {credentialsProvider && <form className="muse-auth-form" onSubmit={submitSsoPassword}>
+        <label htmlFor="sso-account">{accountLabel}<input id="sso-account" name="account" type="text" autoComplete="username" placeholder={accountLabel} maxLength={64} required disabled={busy} value={ssoAccount} onChange={(event) => setSsoAccount(event.target.value)} /></label>
+        <label htmlFor="sso-password">密码<input id="sso-password" name="password" type="password" autoComplete="current-password" maxLength={128} required disabled={busy} value={ssoPassword} onChange={(event) => setSsoPassword(event.target.value)} /></label>
+        <button type="submit" className="muse-auth-button muse-auth-submit" disabled={busy}>{busy ? '登录中…' : '登录'}<b aria-hidden="true">→</b></button>
+      </form>}
+      {error && (!passwordProvider || credentialsProvider) && <p className="muse-auth-error" role="alert">{error}</p>}
       {configError && <p className="muse-auth-help" role="alert">{configError}</p>}
       <div className="muse-auth-divider"><span>在你的服务器上安全登录</span></div><div className="muse-auth-points"><span>◉ <b>跨设备同步</b><small>所有设备都能继续</small></span><span>⌁ <b>隐私优先</b><small>账号和数据由你管理</small></span></div>
     </main>
     <footer className="muse-auth-footer"><span>© 2026 Luma contributors</span><span>PERSONAL AI, BY LUMA</span></footer>
   </div>
+}
+
+const SSO_CALLBACK_STORAGE_KEY = 'luma_sso_state'
+
+function ssoRedirectOrigin(provider) {
+  const value = provider && typeof provider.origin === 'string' ? provider.origin : ''
+  try {
+    const target = new URL(value)
+    if (target.protocol !== 'https:' && target.protocol !== 'http:') return ''
+    return target.origin
+  } catch {
+    return ''
+  }
+}
+
+async function beginSsoLogin(provider, reportError) {
+  try {
+    const started = await startSsoLogin(API_URL, '/app')
+    const target = new URL(started.url)
+    if (target.protocol !== 'https:' && target.protocol !== 'http:') throw new Error('单点登录暂时不可用')
+    const expected = ssoRedirectOrigin(provider)
+    if (expected && target.origin !== expected) throw new Error('单点登录暂时不可用')
+    if (!started.state) throw new Error('单点登录暂时不可用')
+    sessionStorage.setItem(SSO_CALLBACK_STORAGE_KEY, JSON.stringify({ state: started.state, next: '/app' }))
+    window.location.assign(started.url)
+  } catch (failure) {
+    const message = failure instanceof Error ? failure.message : '单点登录暂时不可用'
+    if (typeof reportError === 'function') reportError(message)
+  }
 }
 
 function RouteLoading() {
@@ -2760,6 +2828,38 @@ function RouteLoading() {
 
 function RouteServiceUnavailable() {
   return <div className="callback-shell route-loading"><div className="callback-card"><Brand /><div className="callback-status error"><span className="callback-icon">!</span><h1>服务暂时不可用</h1><p>正在稍后重试，登录状态不会被清除。</p><button className="site-primary" onClick={() => window.location.reload()}>重试 <span>↻</span></button></div></div></div>
+}
+
+function SsoCallbackPage() {
+  const [status, setStatus] = useState('loading')
+  const [message, setMessage] = useState('正在确认登录…')
+  useEffect(() => {
+    let active = true
+    async function exchange() {
+      const params = new URLSearchParams(window.location.search)
+      const ticket = params.get('ticket') || ''
+      const returnedState = params.get('state') || ''
+      let pending = null
+      try { pending = JSON.parse(sessionStorage.getItem(SSO_CALLBACK_STORAGE_KEY) || 'null') } catch { pending = null }
+      const expectedState = pending?.state || ''
+      if (!ticket || (returnedState && (!expectedState || returnedState !== expectedState))) {
+        if (active) { setStatus('error'); setMessage('登录交易已失效，请重新发起登录。') }
+        return
+      }
+      try {
+        const payload = await exchangeSsoTicket(API_URL, ticket, returnedState)
+        if (payload.access_token) sessionStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, payload.access_token)
+        sessionStorage.removeItem(SSO_CALLBACK_STORAGE_KEY)
+        const next = pending?.next && pending.next.startsWith('/') && !pending.next.startsWith('//') ? pending.next : '/app'
+        if (active) { setStatus('success'); setMessage('登录成功，正在进入工作空间…'); window.setTimeout(() => navigate(next), 350) }
+      } catch (failure) {
+        if (active) { setStatus('error'); setMessage(failure instanceof Error ? failure.message : '单点登录暂时不可用') }
+      }
+    }
+    exchange()
+    return () => { active = false }
+  }, [])
+  return <div className="callback-shell"><div className="callback-card"><Brand /><div className={`callback-status ${status}`}><span className="callback-icon">{status === 'loading' ? '◌' : status === 'success' ? '✓' : '!'}</span><h1>{status === 'loading' ? '正在登录' : status === 'success' ? '欢迎回来' : '登录没有完成'}</h1><p>{message}</p>{status === 'error' && <button className="site-primary" onClick={() => navigate('/login')}>重新登录 <span>→</span></button>}</div></div></div>
 }
 
 function RouteApp() {
@@ -2805,6 +2905,7 @@ function RouteApp() {
   useEffect(() => {
     if (authState === 'authenticated' && (path === '/' || path === '/login')) navigate('/app', { replace: true })
   }, [authState, path])
+  if (path === '/sso-callback') return <SsoCallbackPage />
   if ((path === '/' || path === '/login') && authState === 'checking') return <RouteLoading />
   if ((path === '/' || path === '/login') && authState === 'authenticated') return <RouteLoading />
   if (['/', '/login', '/app', '/chat', '/admin'].includes(path) && authState === 'unavailable') return <RouteServiceUnavailable />
