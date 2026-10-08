@@ -1,8 +1,20 @@
 const { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain, shell, session, globalShortcut } = require('electron')
 const fs = require('node:fs')
 const path = require('node:path')
+const { readRuntimeBrand, resolveIconFile } = require('./scripts/apply-brand')
 
-app.setName('Luma')
+const brand = readRuntimeBrand({
+  fs,
+  env: process.env,
+  dirname: __dirname,
+  resourcesPath: process.resourcesPath,
+})
+
+app.setName(brand.productName)
+
+function iconFile(name) {
+  return resolveIconFile(brand, name, { dirname: __dirname, resourcesPath: process.resourcesPath })
+}
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL)
 
@@ -44,7 +56,7 @@ let pendingCommands = []
 function trayIcon() {
   // Electron also loads the adjacent @2x representation for Retina displays.
   const filename = process.platform === 'darwin' ? 'trayTemplate.png' : 'tray.png'
-  const image = nativeImage.createFromPath(path.join(__dirname, 'build', filename))
+  const image = nativeImage.createFromPath(iconFile(filename))
   if (process.platform === 'darwin') image.setTemplateImage(true)
   return image
 }
@@ -85,8 +97,8 @@ function createWindow() {
     height: 840,
     minWidth: 900,
     minHeight: 640,
-    title: 'Luma · 个人助理',
-    icon: path.join(__dirname, 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
+    title: brand.productName,
+    icon: iconFile(process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
     backgroundColor: '#0f1110',
     show: false,
     webPreferences: {
@@ -134,7 +146,7 @@ function createWindow() {
 function trayMenu() {
   const supportsLoginItems = ['darwin', 'win32'].includes(process.platform)
   return Menu.buildFromTemplate([
-    { label: '打开 Luma', click: showWindow },
+    { label: `打开 ${brand.productName}`, click: showWindow },
     { label: '新建旁聊', click: () => sendCommand('new-side-chat') },
     { label: '搜索…', click: () => sendCommand('open-search') },
     { label: '语音输入', click: () => sendCommand('start-voice') },
@@ -155,7 +167,7 @@ function trayMenu() {
 
 function createTray() {
   tray = new Tray(trayIcon())
-  tray.setToolTip('Luma · 个人助理')
+  tray.setToolTip(brand.trayTooltip)
   if (process.platform === 'darwin') {
     // Supplying a context menu would let macOS open it automatically as well.
     tray.setIgnoreDoubleClickEvents(true)
@@ -196,20 +208,20 @@ app.whenReady().then(() => {
     else pendingCommands = []
   })
   if (process.platform === 'darwin') {
-    app.dock.setIcon(path.join(__dirname, 'build', 'icon.png'))
+    app.dock.setIcon(iconFile('icon.png'))
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       {
-        label: 'Luma',
+        label: brand.productName,
         submenu: [
-          { role: 'about', label: '关于 Luma' },
+          { role: 'about', label: `关于 ${brand.productName}` },
           { type: 'separator' },
           { role: 'services' },
           { type: 'separator' },
-          { role: 'hide', label: '隐藏 Luma' },
+          { role: 'hide', label: `隐藏 ${brand.productName}` },
           { role: 'hideOthers' },
           { role: 'unhide' },
           { type: 'separator' },
-          { role: 'quit', label: '退出 Luma' },
+          { role: 'quit', label: `退出 ${brand.productName}` },
         ],
       },
       { role: 'editMenu' }, { role: 'viewMenu' }, { role: 'windowMenu' },

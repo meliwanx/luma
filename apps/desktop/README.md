@@ -56,7 +56,9 @@ The deployed Web interface and API use the same origin and HttpOnly session cook
 
 ## Packaging
 
-Install dependencies with `npm ci`, copy `config.example.json` to `config.local.json`, and set the target server address. Keep this file free of passwords and tokens. The builder copies it to `config.json` in the package resources, outside ASAR.
+Install dependencies with `npm ci`, copy `config.example.json` to `config.local.json`, and set the target server address. Keep this file free of passwords and tokens. The builder copies it to `config.json` in the package resources, outside ASAR, and copies the selected brand file to `brand.json` beside it.
+
+Product name, app id, icons, tray tooltip, window title, Windows installer name, DMG name and the macOS signing identity come from `brand.json`. Set `BRAND_FILE` to a different JSON file for a rebranded build. The open-source defaults are product name `Luma`, app id `app.luma.desktop`, icon directory `build`, tray tooltip `Luma` and `macIdentity` null.
 
 ```bash
 npm run dist:mac
@@ -64,11 +66,11 @@ npm run dist:mac
 npm run dist:win
 ```
 
-Artifacts are written to `dist/`. macOS builds produce separate arm64 and x64 DMG/ZIP files; Windows builds produce an x64 NSIS installer with an installation directory chooser and desktop shortcut. The application ID is `com.example.luma`. These commands never publish artifacts automatically.
+Artifacts are written to `dist/`. macOS builds produce separate arm64 and x64 DMG/ZIP files; Windows builds produce an x64 NSIS installer with an installation directory chooser and desktop shortcut. These commands never publish artifacts automatically.
 
 ### Signing certificates
 
-Provide certificates through environment variables or your CI secret store. No signing identity is fixed in `package.json`. Export the certificate and its private key as a password-protected PKCS#12 file, then set:
+Provide certificates through environment variables or your CI secret store. With `macIdentity` null, no signing identity is pinned. Export the certificate and its private key as a password-protected PKCS#12 file, then set:
 
 ```bash
 export CSC_LINK=/path/to/developer-certificate.p12

@@ -1,0 +1,8 @@
+{
+  "productName": "Luma",
+  "appId": "app.luma.desktop",
+  "iconDir": "build",
+  "trayTooltip": "Luma",
+  "copyright": "",
+  "macIdentity": null
+}
