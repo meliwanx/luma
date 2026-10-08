@@ -84,7 +84,8 @@ function pageHarness({ config = { registration_open: true, requires_invite: fals
   let stateIndex = 0, refIndex = 0, authenticated = 0
   const context = {
     React, Error, API_URL: '/api/v1', ACCESS_TOKEN_STORAGE_KEY: 'luma_access_token',
-    LumaLogo: () => React.createElement('svg', { 'data-logo': 'luma' }),
+    useBrand: () => ({ product_name: 'Luma', name: 'Luma', tagline: '个人助理', logo_url: '', primary_color: '#2563EB' }),
+    BrandLogo: () => React.createElement('svg', { 'data-logo': 'brand' }),
     useState: (initial) => { const index = stateIndex++; if (!(index in states)) states[index] = initial; return [states[index], (value) => { states[index] = typeof value === 'function' ? value(states[index]) : value }] },
     useRef: (initial) => { const index = refIndex++; return refs[index] ||= { current: initial } },
     useEffect: (callback) => effects.push(callback),

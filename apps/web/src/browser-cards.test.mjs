@@ -89,6 +89,7 @@ test('browser permissions render in their own group', async () => {
   let state = 0
   const panels = {
     React, useEffect: () => {}, useMemo: (read) => read(),
+    useBrand: () => ({ product_name: 'Luma', name: 'Luma', tagline: '个人助理', logo_url: '', primary_color: '#2563EB' }),
     useState: (initial) => [state++ === 0 ? [{ key: 'browser.submit', category: 'browser', label: '提交网页', mode: 'ask', allow_always: true }] : initial, () => {}],
   }
   vm.createContext(panels)

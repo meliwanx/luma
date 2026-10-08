@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Icon from './icons.jsx'
-import LumaLogo from './logo.jsx'
+import BrandLogo from './logo.jsx'
+import { brandTitle, useBrand } from './brand.js'
 import { ModelPerformanceChart } from './usage-panels.jsx'
 import { PURPOSE_LABELS, modelAnalysisPath } from './usage-data.js'
 import { activityPage, activityPath } from './feed-data.js'
@@ -615,6 +616,10 @@ function initialSection() {
 }
 
 export default function AdminApp({ request, onExit }) {
+  const brand = useBrand()
+  const productName = brand.product_name
+  const accent = typeof localStorage !== 'undefined' ? localStorage.getItem('luma-accent') || '' : ''
+  const accentStyle = accent ? { '--mc-user': accent } : undefined
   const [me, setMe] = useState(null)
   const [meError, setMeError] = useState('')
   const [section, setSection] = useState(initialSection)
@@ -625,7 +630,11 @@ export default function AdminApp({ request, onExit }) {
     const forced = new URLSearchParams(window.location.search).get('t')
     return forced === 'dark' || forced === 'light' ? forced : (localStorage.getItem('luma-theme') || 'light')
   }, [])
-  useEffect(() => { document.documentElement.dataset.theme = theme; document.title = 'Luma 后台管理' }, [theme])
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    document.title = `${productName} 后台管理`
+    return () => { document.title = brandTitle(brand) }
+  }, [theme, productName, brand])
   useEffect(() => { request('/me').then(setMe).catch((error) => setMeError(error.message || '无法确认权限')) }, [request])
   useEffect(() => { window.history.replaceState({}, '', `${window.location.pathname}${window.location.search}#${section}`) }, [section])
   const openSection = useCallback((id) => { setSection(id); setUserId(''); setSessionId('') }, [])
@@ -634,16 +643,16 @@ export default function AdminApp({ request, onExit }) {
   const showSessions = useCallback((id) => { setSessionUser(id); setUserId(''); setSection('sessions') }, [])
   const shellClass = `app-shell muse-shell admin-shell ${theme === 'light' ? 'theme-light' : ''}`
 
-  if (!me) return <div className={shellClass}><main className="admin-gate">{meError ? <ErrorBox message={meError} /> : <Loading />}</main></div>
-  if (me.role !== 'admin') return <div className={shellClass}><main className="admin-gate"><div className="admin-gate-card"><Icon name="shield" size={28} /><h2>无权限访问后台</h2><p>当前账号不是管理员。如需开通，请把下面的账号 ID 发给管理员。</p><code className="admin-code">{me.user_id}{me.username ? ` · ${me.username}` : ''}</code><button className="primary-btn" onClick={onExit}>返回 Luma</button></div></main></div>
+  if (!me) return <div className={shellClass} style={accentStyle}><main className="admin-gate">{meError ? <ErrorBox message={meError} /> : <Loading />}</main></div>
+  if (me.role !== 'admin') return <div className={shellClass} style={accentStyle}><main className="admin-gate"><div className="admin-gate-card"><Icon name="shield" size={28} /><h2>无权限访问后台</h2><p>当前账号不是管理员。如需开通，请把下面的账号 ID 发给管理员。</p><code className="admin-code">{me.user_id}{me.username ? ` · ${me.username}` : ''}</code><button className="primary-btn" onClick={onExit}>返回 {productName}</button></div></main></div>
 
   const current = sections.find((item) => item.id === section)
-  return <div className={shellClass}>
+  return <div className={shellClass} style={accentStyle}>
     <aside className="admin-nav">
-      <div className="admin-brand"><LumaLogo label="Luma" /><em>后台</em></div>
+      <div className="admin-brand"><BrandLogo labelled /><em>后台</em></div>
       <nav>{sections.map((item) => <button key={item.id} className={section === item.id ? 'active' : ''} onClick={() => openSection(item.id)}><Icon name={item.icon} size={18} /><span>{item.label}</span></button>)}</nav>
       <div className="admin-nav-foot"><span className="admin-avatar">{(me.display_name || me.username || me.user_id || '?').slice(0, 1)}</span><span><strong>{me.display_name || me.username || me.user_id}</strong><small>管理员</small></span></div>
-      <button className="admin-back" onClick={onExit}><Icon name="chat" size={16} /> 返回 Luma</button>
+      <button className="admin-back" onClick={onExit}><Icon name="chat" size={16} /> 返回 {productName}</button>
     </aside>
     <main className="admin-main">
       <header className="admin-header"><h2>{current?.label}</h2><span>{new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date())}</span></header>
