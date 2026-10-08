@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
+from ..brand import get_brand
 from ..models import Message, MessageCreate
 from ..model_calls import UsageTotals, call_context
 from ..services import generation
@@ -217,4 +218,5 @@ def web_message(request: Request, session_id: str, payload: MessageCreate) -> di
     actual_id = latest_session_id(user_id) if session_id in {"default", ""} else session_id
     user_message = chat_service.insert_message(actual_id, payload, user_id)
     assistant = _legacy_assistant(actual_id, user_message, user_id)
-    return {"user_message": user_message.model_dump(mode="json"), "assistant": {"role": "assistant", "content": assistant.content, "metadata": assistant.metadata, "time": assistant.created_at.strftime("%H:%M")}, "activity": "Luma 完成了一次本地对话"}
+    activity = "__BRAND_PRODUCT__ 完成了一次本地对话".replace("__BRAND_PRODUCT__", get_brand().product_name)
+    return {"user_message": user_message.model_dump(mode="json"), "assistant": {"role": "assistant", "content": assistant.content, "metadata": assistant.metadata, "time": assistant.created_at.strftime("%H:%M")}, "activity": activity}

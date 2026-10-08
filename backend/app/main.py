@@ -1,4 +1,4 @@
-"""FastAPI application entry point for the Luma personal assistant."""
+"""FastAPI application entry point."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ from . import telemetry
 from . import auth as auth_module
 from . import provider
 from .admin import router as admin_router
+from .brand import get_brand
 from .config import APP_VERSION, WEB_ROOT, cors_origins, env_int
 from .db import ensure_db
 from .storage import get_storage
@@ -29,7 +30,7 @@ from .services.memory import shutdown_memory_workers
 from .services.seed import ensure_default_data
 from .services import generation
 from .upload_limit import UploadSizeLimitMiddleware
-from .routers import account, artifacts, auth, chat, connectors, dashboard, export, files, goals, health, ideas, library, memories, notifications, push, routines, runtime, sandbox, search, sessions, tasks, usage, voice
+from .routers import account, artifacts, auth, brand, chat, connectors, dashboard, export, files, goals, health, ideas, library, memories, notifications, push, routines, runtime, sandbox, search, sessions, tasks, usage, voice
 from .routers import feed, proactive
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,7 @@ async def browser_connection_loop() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    get_brand()
     auth_module.validate_auth_configuration()
     # Validate the selected storage configuration before serving requests.
     # Existing rows can still use another backend when they are read later.
@@ -161,6 +163,7 @@ app.add_middleware(UploadSizeLimitMiddleware)
 # Include routers in the historical order. Runtime is split into status and durable phases.
 app.include_router(dashboard.router)
 app.include_router(health.router)
+app.include_router(brand.router)
 app.include_router(runtime.status_router)
 app.include_router(sandbox.router)
 app.include_router(auth.router)
@@ -206,7 +209,7 @@ def web_index() -> FileResponse:
 
 @app.get("/{spa_path:path}", include_in_schema=False)
 def spa_fallback(spa_path: str) -> FileResponse:
-    if spa_path == "api" or spa_path.startswith("api/"):
+    if spa_path == "api" or spa_path.startswith("api/") or spa_path == "brand" or spa_path.startswith("brand/"):
         raise HTTPException(status_code=404, detail="Not found")
     index = WEB_ROOT / "index.html"
     if not index.exists():

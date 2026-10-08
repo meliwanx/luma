@@ -17,6 +17,7 @@ from typing import Any, Dict
 from urllib.parse import quote, urlsplit
 
 from .. import agent_runtime
+from ..brand import get_brand
 from ..db import _redis_client
 
 
@@ -113,7 +114,11 @@ def validate_url(url: str) -> str:
         except OSError:
             pass
     if any(host == blocked or host.endswith("." + blocked.lstrip("*.")) for blocked in _blocked_hosts()):
-        raise ValueError("浏览器不能访问 Luma 服务或被禁止的地址")
+        raise ValueError(
+            "浏览器不能访问 __BRAND_PRODUCT__ 服务或被禁止的地址".replace(
+                "__BRAND_PRODUCT__", get_brand().product_name
+            )
+        )
     return url
 
 
@@ -265,7 +270,7 @@ async def _connect(connection: _Connection, user_id: str, force: bool = False) -
             else:
                 await route.continue_()
         # Includes popups, frames, redirects and subresources, so a click or
-        # server redirect cannot navigate back into Luma with browser cookies.
+        # server redirect cannot navigate back into this service with browser cookies.
         await connection.context.route("**/*", guard)
         async def guard_new_page(page: Any) -> None:
             try:

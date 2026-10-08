@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import uuid
 
+from ..brand import get_brand
 from ..db import get_connection
 
 
@@ -14,6 +15,12 @@ def now() -> str:
 
 def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex}"
+
+
+def welcome_text() -> str:
+    return "你好，我是 __BRAND_ASSISTANT__。有什么可以帮你？".replace(
+        "__BRAND_ASSISTANT__", get_brand().assistant_name
+    )
 
 
 def _main_session(conn: object, user_id: str) -> object:
@@ -92,7 +99,7 @@ def ensure_default_data(user_id: str = "local") -> None:
                             user_id,
                             session_id,
                             "assistant",
-                            "你好，我是 Luma。有什么可以帮你？",
+                            welcome_text(),
                             timestamp,
                             "{}",
                         ),
