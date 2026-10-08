@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../brand.dart';
 import '../glass.dart';
 import '../markdown.dart';
 import '../theme.dart';
@@ -213,7 +214,7 @@ class _LibraryViewState extends State<LibraryView> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '你的文件和 Luma 产出，都在这里。',
+                          '你的文件和 ${context.brand.name} 产出，都在这里。',
                           style: TextStyle(color: context.muse.muted),
                         ),
                         const SizedBox(height: 24),
@@ -300,7 +301,7 @@ class _LibraryViewState extends State<LibraryView> {
                       else if (_items.isEmpty)
                         _status(
                           _query.isEmpty
-                              ? '还没有资源，上传文件或让 Luma 帮你创作吧。'
+                              ? '还没有资源，上传文件或让 ${context.brand.name} 帮你创作吧。'
                               : '没有找到匹配的资源',
                         )
                       else ...[

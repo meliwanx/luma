@@ -1851,7 +1851,9 @@ class _LumaHomeState extends State<LumaHome> with WidgetsBindingObserver {
 
   String _mobileSessionTitle() {
     final current = _sessionById(sessionId);
-    if (current == null || current['kind'] == 'main') return 'Luma';
+    if (current == null || current['kind'] == 'main') {
+      return context.brand.name;
+    }
     return '${current['title'] ?? '旁聊'}';
   }
 

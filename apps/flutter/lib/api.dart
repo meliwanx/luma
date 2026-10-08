@@ -89,6 +89,21 @@ class AssistantApi {
     return Map<String, dynamic>.from(result);
   }
 
+  /// Public product identity. Callers fall back to build-time defaults when
+  /// this request fails or the payload is not an object.
+  Future<Map<String, dynamic>> brand() async {
+    final result = await _accountRequest(
+      'GET',
+      '/api/v1/brand',
+      '品牌配置加载失败',
+      authenticated: false,
+    );
+    if (result is! Map) {
+      throw const AssistantApiException('品牌配置接口返回了无效响应');
+    }
+    return Map<String, dynamic>.from(result);
+  }
+
   Future<String> ssoPasswordLogin(String account, String password) async {
     try {
       final request = http.Request(

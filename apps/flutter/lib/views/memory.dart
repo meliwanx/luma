@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../brand.dart';
 import '../theme.dart';
 
 class MemoryView extends StatefulWidget {
@@ -327,7 +328,9 @@ class _MemoryHeader extends StatelessWidget {
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
           child: Text(
-            ideasOnly ? '把灵感随手告诉 Luma' : '你可以随时查看、编辑或删除 Luma 记住的内容。',
+            ideasOnly
+                ? '把灵感随手告诉 ${context.brand.name}'
+                : '你可以随时查看、编辑或删除 ${context.brand.name} 记住的内容。',
             style: TextStyle(color: colors.muted, fontSize: 14, height: 1.5),
           ),
         ),
@@ -479,7 +482,9 @@ class _EmptyMemories extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              ideasOnly ? '把灵感随手告诉 Luma' : '当 Luma 记住新的内容时，它们会显示在这里。',
+              ideasOnly
+                  ? '把灵感随手告诉 ${context.brand.name}'
+                  : '当 ${context.brand.name} 记住新的内容时，它们会显示在这里。',
               textAlign: TextAlign.center,
               style: TextStyle(color: colors.muted, fontSize: 13, height: 1.5),
             ),

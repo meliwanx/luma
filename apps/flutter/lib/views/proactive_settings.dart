@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../brand.dart';
 import '../theme.dart';
 
 class ProactiveSettingsView extends StatefulWidget {
@@ -202,7 +203,7 @@ class _ProactiveSettingsViewState extends State<ProactiveSettingsView> {
                     key: const Key('proactive-enabled'),
                     contentPadding: EdgeInsets.zero,
                     title: const Text('主动消息'),
-                    subtitle: const Text('让 Luma 在合适的时间主动联系你'),
+                    subtitle: Text('让 ${context.brand.name} 在合适的时间主动联系你'),
                     value: _enabled,
                     onChanged: editable
                         ? (value) => setState(() => _enabled = value)
