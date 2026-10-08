@@ -12,13 +12,14 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from .brand import LiveText, get_brand
 from .db import get_connection
 from . import mcp
 from .tool_results import tool_result_text
 from .services.browser_events import BROWSER_INSTRUCTION, BROWSER_LIVE_TEXT
 
 
-SYSTEM_PROMPT = """你是 Luma，用户的个人 AI 助理。回答简洁、直接，使用轻量 Markdown。需要用户在几个方案中选择、补充几项信息、查看可执行步骤清单或计划、并列查看几个推荐对象时，可以使用对话组件。闲聊、单一事实问答、用户只要一段文字时不要用组件。每条回复最多一个组件；先写一两句正文，再给一个语言标记为 luma-ui 的围栏代码块。JSON 必须是单行或合法多行，不能有注释；绝不输出 HTML。组件只用于帮助呈现和收集输入，不要虚构用户已提交的内容。
+_SYSTEM_PROMPT_TEMPLATE = """你是 __BRAND_ASSISTANT__，用户的个人 AI 助理。回答简洁、直接，使用轻量 Markdown。需要用户在几个方案中选择、补充几项信息、查看可执行步骤清单或计划、并列查看几个推荐对象时，可以使用对话组件。闲聊、单一事实问答、用户只要一段文字时不要用组件。每条回复最多一个组件；先写一两句正文，再给一个语言标记为 luma-ui 的围栏代码块。JSON 必须是单行或合法多行，不能有注释；绝不输出 HTML。组件只用于帮助呈现和收集输入，不要虚构用户已提交的内容。
  luma-ui 不是工具或函数，绝不要用 tool_call / function_calls / invoke 之类的格式，直接在正文里输出 ```luma-ui 代码块。
 历史消息里形如「〔历史组件记录：…〕」的文字是系统对之前已展示组件的摘要，只供你了解用户做过的选择；你自己绝不能输出这种格式。每次需要组件时，都必须重新输出一个完整的 luma-ui 代码块，否则用户看不到组件。
 
@@ -38,7 +39,14 @@ cards 示例（尽量写上 subtitle/body/tag；希望用户点选一张继续�
 ```luma-ui
 {"type":"cards","title":"推荐","items":[{"id":"park","title":"森林公园","subtitle":"车程 40 分钟","body":"草坪大，适合野餐和放风筝。","tag":"户外"}],"selectable":true}
 ```"""
-SYSTEM_PROMPT += "\n\n" + BROWSER_INSTRUCTION
+
+
+def _render_system_prompt() -> str:
+    body = _SYSTEM_PROMPT_TEMPLATE.replace("__BRAND_ASSISTANT__", get_brand().assistant_name)
+    return body + "\n\n" + BROWSER_INSTRUCTION
+
+
+SYSTEM_PROMPT = LiveText(_render_system_prompt)
 
 FENCE = re.compile(r"(?m)^```luma-ui[ \t]*\r?\n(?P<body>.*?)(?:^```[ \t]*(?:\r?\n|$)|\Z)", re.DOTALL)
 MARKER = re.compile(r"\[\[widget:(wgt_[A-Za-z0-9_-]+)\]\]")
@@ -567,7 +575,8 @@ def create_confirm_widget(user_id: str, session_id: str, message_id: str, *, con
         shown = re.sub(r"(?i)Bearer\s+[A-Za-z0-9._~+/=-]{8,}", "Bearer [已隐藏]", shown)
         shown = re.sub(r"(?i)\b(?:simmcp_|sk-)[A-Za-z0-9._~-]{8,}", "[已隐藏]", shown)
         details.append({"label": str(key)[:80], "value": shown})
-    spec = {"type": "confirm", "title": "需要你确认", "body": f"Luma 想调用「{connector_name}」的「{title}」，这个操作可能会修改数据。", "details": details, "confirm_label": "确认执行", "cancel_label": "取消"}
+    body = f"{get_brand().assistant_name} 想调用「{connector_name}」的「{title}」，这个操作可能会修改数据。"
+    spec = {"type": "confirm", "title": "需要你确认", "body": body, "details": details, "confirm_label": "确认执行", "cancel_label": "取消"}
     state = {"status": "pending", "_pending": {"connector_id": connector_id, "tool": tool, "arguments": arguments, "connector_name": connector_name, "tool_title": title}}
     widget_id = "wgt_" + uuid.uuid4().hex
     timestamp = datetime.now(timezone.utc).isoformat()

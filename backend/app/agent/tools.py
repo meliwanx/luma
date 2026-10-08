@@ -23,6 +23,7 @@ from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Tup
 from urllib.parse import urlsplit
 
 from .. import agent_runtime, mcp
+from ..brand import product_slug
 from ..db import get_connection
 from ..mappers import parse_json
 from ..services import files as files_service
@@ -904,7 +905,7 @@ async def _sandbox_files_export(ctx: AgentContext, args: Dict[str, Any]) -> Tool
         export_path = resolved
         archive_name = None
         if is_directory:
-            archive_name = "luma-export-%s" % uuid.uuid4().hex
+            archive_name = "%s-export-%s" % (product_slug(), uuid.uuid4().hex)
             archive_base = "/home/user/" + archive_name
             archive_zip = archive_base + ".zip"
             archive_tar = archive_base + ".tar.gz"

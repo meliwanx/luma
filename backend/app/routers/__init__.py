@@ -1,2 +1,2 @@
-"""HTTP route modules for the Luma assistant API."""
+"""HTTP route modules for the assistant API."""
 

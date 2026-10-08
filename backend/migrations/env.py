@@ -1,4 +1,4 @@
-"""Alembic environment for Luma's PostgreSQL-only storage.
+"""Alembic environment for the assistant's PostgreSQL-only storage.
 
 Connection details are read from :func:`app.db.postgres_settings`; no
 credentials or connection strings are stored in alembic.ini.

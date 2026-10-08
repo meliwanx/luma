@@ -13,6 +13,7 @@ from fastapi.responses import StreamingResponse
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
 from .. import telemetry
+from ..brand import get_brand
 from ..model_calls import UsageTotals, call_context, merged_metadata_sql
 from ..mcp import SecretConfigError
 from ..db import get_connection
@@ -753,7 +754,10 @@ async def stream_message(request: Request, session_id: str, payload: MessageCrea
                             )
                             legacy.append(legacy_item)
                             defs.append(legacy_item.openai_definition())
-                        defs.append({"type": "function", "function": {"name": "luma-ui", "description": "渲染安全的结构化 Luma UI 组件。", "parameters": {"type": "object"}}})
+                        ui_description = "渲染安全的结构化 __BRAND_PRODUCT__ UI 组件。".replace(
+                            "__BRAND_PRODUCT__", get_brand().product_name
+                        )
+                        defs.append({"type": "function", "function": {"name": "luma-ui", "description": ui_description, "parameters": {"type": "object"}}})
                         return legacy, defs
 
                     agent_events: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue()

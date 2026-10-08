@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 
 from ..auth import current_user_id
+from ..brand import get_brand
 from ..db import ping_database, ping_redis, storage_status
 from ..config import APP_VERSION
 from ..provider import status as provider_status
@@ -20,7 +21,7 @@ def health() -> dict[str, Any]:
     redis_ok = ping_redis()
     return {
         "status": "ok" if database_ok else "degraded",
-        "service": "personal-assistant-api",
+        "service": get_brand().product_name,
         "version": APP_VERSION,
         "database": {"reachable": database_ok},
         "redis": {"configured": bool(os.getenv("REDIS_HOST", "").strip()), "reachable": redis_ok},
