@@ -4,6 +4,34 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val brandAppIdRaw =
+    (findProperty("brandAppId") as? String)?.trim().orEmpty()
+val allowDefaultBrand =
+    (findProperty("allowDefaultBrand") as? String)?.trim() == "1" ||
+        System.getenv("ALLOW_DEFAULT_BRAND") == "1"
+val brandAppId = brandAppIdRaw.ifBlank { "app.luma.client" }
+val brandDisplayName =
+    (findProperty("brandDisplayName") as? String)?.takeIf { it.isNotBlank() }
+        ?: "Luma"
+
+gradle.taskGraph.whenReady {
+    val releasing = allTasks.any { task ->
+        val name = task.name
+        name.contains("Release") && !name.contains("Test")
+    }
+    if (!releasing || allowDefaultBrand) return@whenReady
+    if (brandAppIdRaw.isBlank()) {
+        throw GradleException(
+            "发布构建必须设置 -PbrandAppId。若要使用开源默认 app.luma.client，请设置 -PallowDefaultBrand=1 或 ALLOW_DEFAULT_BRAND=1。",
+        )
+    }
+    if (brandAppIdRaw == "app.luma.client") {
+        throw GradleException(
+            "brandAppId 不能使用开源默认 app.luma.client，除非设置 -PallowDefaultBrand=1 或 ALLOW_DEFAULT_BRAND=1。",
+        )
+    }
+}
+
 android {
     namespace = "com.example.luma_client"
     compileSdk = flutter.compileSdkVersion
@@ -16,7 +44,8 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.luma_client"
+        applicationId = brandAppId
+        resValue("string", "app_name", brandDisplayName)
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

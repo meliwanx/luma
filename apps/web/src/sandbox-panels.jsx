@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { useBrand } from './brand.js'
 
-const CATEGORY_LABELS = { mcp: '连接器', luma: 'Luma', sandbox: '沙箱', browser: '浏览器' }
+const CATEGORY_LABELS = { mcp: '连接器', sandbox: '沙箱', browser: '浏览器' }
 const STATUS_LABELS = { running: '运行中', paused: '已暂停', none: '未创建' }
 
 function formatBytes(value) {
@@ -44,6 +45,7 @@ function PermissionSwitch({ item, disabled, onChange }) {
 }
 
 export function PermissionsPanel({ request, notify }) {
+  const productName = useBrand().product_name
   const [items, setItems] = useState(undefined)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState('')
@@ -95,7 +97,7 @@ export function PermissionsPanel({ request, notify }) {
   return <div className="sandbox-settings-panel">
     {error && <p className="sandbox-panel-error" role="alert">{error}</p>}
     {Object.entries(groups).map(([category, categoryItems]) => <section className="sandbox-settings-group" key={category}>
-      <h4>{CATEGORY_LABELS[category]}</h4>
+      <h4>{category === 'luma' ? productName : CATEGORY_LABELS[category]}</h4>
       <div className="ms-group">
         {categoryItems.length ? categoryItems.map((item) => <div className="permission-row" key={item.key}>
           <div className="permission-copy"><strong>{item.label || item.key}</strong><small>{item.description || '此操作的权限设置'}</small></div>

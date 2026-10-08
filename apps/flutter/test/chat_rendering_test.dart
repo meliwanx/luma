@@ -131,7 +131,7 @@ void main() {
       addTearDown(input.dispose);
       addTearDown(scroll.dispose);
       final tool = <String, dynamic>{
-        'connector': 'sim-data',
+        'connector': 'sample-data',
         'title': '取数',
         'status': 'running',
       };
@@ -147,7 +147,7 @@ void main() {
       await _mount(tester, input: input, scroll: scroll, messages: messages);
       final bubble = find.byKey(const ValueKey('chat-thinking-bubble'));
       final caption = find.byKey(const ValueKey('chat-tool-progress'));
-      expect(find.text('正在查询 sim-data · 取数…'), findsOneWidget);
+      expect(find.text('正在查询 sample-data · 取数…'), findsOneWidget);
       expect(
         tester.getRect(caption).top,
         greaterThan(tester.getRect(bubble).bottom),

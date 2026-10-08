@@ -7,6 +7,8 @@ const vm = require('node:vm')
 
 const desktopDir = path.resolve(__dirname, '..')
 const resourcesDir = path.join(desktopDir, 'test-resources')
+const brandResource = path.join(resourcesDir, 'brand.json')
+const brandLocal = path.join(desktopDir, 'brand.json')
 
 async function loadMain(platform = 'darwin', options = {}) {
   const windows = []
@@ -127,9 +129,11 @@ async function loadMain(platform = 'darwin', options = {}) {
       if (name === 'node:fs') return { readFileSync(filename) {
         configReads.push(filename)
         const configs = options.configs || {}
-        if (!Object.prototype.hasOwnProperty.call(configs, filename)) throw new Error('No config')
-        return configs[filename]
+        if (Object.prototype.hasOwnProperty.call(configs, filename)) return configs[filename]
+        if (filename === brandLocal) return fs.readFileSync(filename)
+        throw new Error('No config')
       } }
+      if (name.startsWith('.')) return require(path.resolve(desktopDir, name))
       return require(name)
     },
     process: {
@@ -170,6 +174,8 @@ test('macOS uses branded template tray, a single popup per click and a native qu
   const window = state.windows[0]
   assert.equal(path.basename(state.images[0].filename), 'trayTemplate.png')
   assert.equal(state.images[0].template, true)
+  assert.equal(window.config.title, 'Luma')
+  assert.equal(state.trays[0].tooltip, 'Luma')
   assert.equal(path.basename(window.config.icon), 'icon.png')
   assert.equal(window.config.webPreferences.contextIsolation, true)
   assert.equal(window.config.webPreferences.nodeIntegration, false)
@@ -195,6 +201,8 @@ test('Luma is named before ready on both platforms and sets only the macOS Dock 
   for (const platform of ['darwin', 'win32']) {
     const state = await loadMain(platform)
     assert.equal(state.app.getName(), 'Luma')
+    assert.equal(state.windows[0].config.title, 'Luma')
+    assert.equal(state.trays[0].tooltip, 'Luma')
     assert.equal(state.handlers.get('app:get-info')().name, 'Luma')
     assert.deepEqual(state.startupCalls, platform === 'darwin'
       ? ['setName', 'whenReady', 'dockIcon'] : ['setName', 'whenReady'])
@@ -211,15 +219,15 @@ test('server configuration prefers the environment, then packaged resources, the
   }
   const environment = await loadMain('darwin', { configs, env: { LUMA_SERVER_URL: ' https://env.example.com/app ' } })
   assert.equal(new URL(environment.windows[0].url).origin, 'https://env.example.com')
-  assert.deepEqual(environment.configReads, [])
+  assert.deepEqual(environment.configReads, [brandResource, brandLocal])
   const packaged = await loadMain('darwin', { configs, env: { LUMA_SERVER_URL: undefined } })
   assert.equal(new URL(packaged.windows[0].url).origin, 'https://packaged.example.com')
-  assert.deepEqual(packaged.configReads, [resourceFile])
+  assert.deepEqual(packaged.configReads, [brandResource, brandLocal, resourceFile])
   assert.equal(packaged.permissions.check(null, 'media', 'https://packaged.example.com', { mediaType: 'audio' }), true)
   assert.equal(packaged.permissions.check(null, 'media', 'https://local.example.com', { mediaType: 'audio' }), false)
   const local = await loadMain('win32', { configs: { [localFile]: configs[localFile] }, env: { LUMA_SERVER_URL: '' } })
   assert.equal(new URL(local.windows[0].url).origin, 'https://local.example.com')
-  assert.deepEqual(local.configReads, [resourceFile, localFile])
+  assert.deepEqual(local.configReads, [brandResource, brandLocal, resourceFile, localFile])
 })
 
 test('missing, malformed or empty packaged config falls back without changing the local default', async () => {
@@ -232,13 +240,13 @@ test('missing, malformed or empty packaged config falls back without changing th
     })
     assert.equal(new URL(state.windows[0].url).origin, 'https://local.example.com')
     assert.equal(new URL(state.windows[0].url).pathname, '/app')
-    assert.deepEqual(state.configReads, [resourceFile, localFile])
+    assert.deepEqual(state.configReads, [brandResource, brandLocal, resourceFile, localFile])
   }
   const state = await loadMain('win32', { env: { LUMA_SERVER_URL: undefined } })
   assert.equal(state.windows[0].url, 'http://localhost:8000/app?client=1')
   const noResources = await loadMain('darwin', { env: { LUMA_SERVER_URL: undefined }, resourcesPath: null })
   assert.equal(noResources.windows[0].url, 'http://localhost:8000/app?client=1')
-  assert.deepEqual(noResources.configReads, [localFile])
+  assert.deepEqual(noResources.configReads, [brandLocal, localFile])
 })
 
 test('Windows uses the application ICO and single tray click restores and focuses the window', async () => {
@@ -398,6 +406,73 @@ test('preload only forwards the command whitelist and never exposes Electron eve
   assert.equal(received.length, 3)
   assert.deepEqual(ipcRenderer.sent, [['app:commands-ready', true], ['app:commands-ready', false]])
   assert.equal(ipcRenderer.listenerCount('app:command'), 0)
+})
+
+test('window title, tray tooltip and menus follow the brand file', async () => {
+  const state = await loadMain('darwin', {
+    configs: {
+      [brandLocal]: JSON.stringify({
+        productName: 'Northstar',
+        appId: 'app.northstar.desktop',
+        iconDir: 'custom-icons',
+        trayTooltip: 'Northstar tray',
+        copyright: '',
+        macIdentity: null,
+      }),
+    },
+  })
+  assert.equal(state.app.getName(), 'Northstar')
+  assert.equal(state.handlers.get('app:get-info')().name, 'Northstar')
+  assert.equal(state.windows[0].config.title, 'Northstar')
+  assert.equal(state.trays[0].tooltip, 'Northstar tray')
+  assert.equal(path.dirname(state.windows[0].config.icon), path.join(desktopDir, 'custom-icons'))
+  assert.equal(path.basename(state.windows[0].config.icon), 'icon.png')
+  assert.equal(path.basename(state.images[0].filename), 'trayTemplate.png')
+  assert.equal(state.menu()[0].label, '打开 Northstar')
+  const appMenu = state.Menu.applicationMenu.template[0]
+  assert.equal(appMenu.label, 'Northstar')
+  assert.equal(appMenu.submenu.find((item) => item.role === 'about').label, '关于 Northstar')
+  assert.equal(appMenu.submenu.find((item) => item.role === 'hide').label, '隐藏 Northstar')
+  assert.equal(appMenu.submenu.find((item) => item.role === 'quit').label, '退出 Northstar')
+  assert.deepEqual(state.configReads, [brandResource, brandLocal])
+})
+
+test('BRAND_FILE selects another brand file and resolves relative icons beside it', async () => {
+  const brandFile = path.join(resourcesDir, 'custom-brand.json')
+  const state = await loadMain('win32', {
+    env: { BRAND_FILE: brandFile },
+    configs: {
+      [brandFile]: JSON.stringify({
+        productName: 'Northstar',
+        trayTooltip: 'Northstar tray',
+        iconDir: 'icons',
+      }),
+    },
+  })
+  assert.equal(state.app.getName(), 'Northstar')
+  assert.equal(state.windows[0].config.title, 'Northstar')
+  assert.equal(state.trays[0].tooltip, 'Northstar tray')
+  assert.equal(state.windows[0].config.icon, path.join(resourcesDir, 'icons', 'icon.ico'))
+  assert.equal(state.images[0].filename, path.join(resourcesDir, 'icons', 'tray.png'))
+  assert.deepEqual(state.configReads, [brandFile])
+})
+
+test('a packaged brand file supplies the name while icons stay in the app directory', async () => {
+  const state = await loadMain('darwin', {
+    configs: {
+      [brandResource]: JSON.stringify({
+        productName: 'Packaged',
+        trayTooltip: 'Packaged tip',
+        iconDir: 'build',
+      }),
+    },
+  })
+  assert.equal(state.app.getName(), 'Packaged')
+  assert.equal(state.windows[0].config.title, 'Packaged')
+  assert.equal(state.trays[0].tooltip, 'Packaged tip')
+  assert.equal(state.app.dockIcon, path.join(desktopDir, 'build', 'icon.png'))
+  assert.equal(state.windows[0].config.icon, path.join(desktopDir, 'build', 'icon.png'))
+  assert.deepEqual(state.configReads, [brandResource])
 })
 
 test('multiple preload subscribers stay ready until the last idempotent unsubscribe', () => {

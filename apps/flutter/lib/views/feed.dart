@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../api.dart';
+import '../brand.dart';
 import '../glass.dart';
 import '../markdown.dart';
 import '../theme.dart';
@@ -388,7 +389,7 @@ class _FeedViewState extends State<FeedView> {
                             const Text('还没有动态'),
                             const SizedBox(height: 8),
                             Text(
-                              'Luma 会围绕你关心的话题整理资讯。',
+                              '${context.brand.name} 会围绕你关心的话题整理资讯。',
                               style: TextStyle(color: context.muse.muted),
                             ),
                           ],
@@ -607,7 +608,7 @@ class _FeedInstructionsState extends State<_FeedInstructions> {
               ),
               const SizedBox(height: 10),
               Text(
-                '告诉 Luma 你希望看到哪些资讯，以及整理方式。',
+                '告诉 ${context.brand.name} 你希望看到哪些资讯，以及整理方式。',
                 style: TextStyle(color: context.muse.muted),
               ),
               const SizedBox(height: 16),

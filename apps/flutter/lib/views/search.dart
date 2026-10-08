@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../api.dart';
+import '../brand.dart';
 import '../glass.dart';
 import '../session_utils.dart';
 import '../theme.dart';
@@ -289,7 +290,7 @@ class _SearchViewState extends State<SearchView> {
       context,
       id: id is String ? id : null,
       icon: Icons.chat_bubble_outline_rounded,
-      title: '${session['title'] ?? 'Luma'}',
+      title: '${session['title'] ?? context.brand.name}',
       subtitle: '${session['last_message_preview'] ?? ''}',
       trailing: timestamp == null ? null : relativeTime(timestamp),
     );
@@ -301,7 +302,7 @@ class _SearchViewState extends State<SearchView> {
       context,
       id: id is String ? id : null,
       icon: Icons.notes_rounded,
-      title: '${message['session_title'] ?? 'Luma'}',
+      title: '${message['session_title'] ?? context.brand.name}',
       subtitle: '${message['snippet'] ?? ''}',
     );
   }

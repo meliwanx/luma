@@ -1,6 +1,7 @@
 """Browser lease coverage using mocked E2B without starting cloud resources."""
 
 import json
+import os
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -69,7 +70,7 @@ class _Connection:
 def _settings(**changes):
     values = dict(
         enabled=True, api_mode="e2b", api_key="fake-key", e2b_domain="ap-hongkong.tencentags.com",
-        provider="test", code_tool="luma-code", browser_tool="luma-browser", aio_tool="",
+        provider="test", code_tool="example-code", browser_tool="example-browser", aio_tool="",
         idle_ttl_seconds=300, max_instances=5, max_cpu=10, max_memory_gib=10,
         region="ap-hongkong", sandbox_max_paused=18, sandbox_paused_retention_days=30,
     )
@@ -88,6 +89,11 @@ def _box(identifier):
 
 
 class BrowserLeaseTests(unittest.TestCase):
+    def setUp(self):
+        self._suffix = patch.dict(os.environ, {"SANDBOX_PREVIEW_HOST_SUFFIX": ".tencentags.com"}, clear=False)
+        self._suffix.start()
+        self.addCleanup(self._suffix.stop)
+
     def _provider(self):
         boxes = {}
 
@@ -127,7 +133,7 @@ class BrowserLeaseTests(unittest.TestCase):
     def test_aio_configuration_creates_one_lease_for_both_capabilities(self):
         conn = _Connection()
         sdk, _ = self._provider()
-        with patch.object(agent_runtime, "config", return_value=_settings(aio_tool="luma-aio")), patch.object(
+        with patch.object(agent_runtime, "config", return_value=_settings(aio_tool="example-aio")), patch.object(
             agent_runtime, "get_connection", return_value=conn
         ), patch.dict(sys.modules, {"e2b": SimpleNamespace(Sandbox=sdk)}):
             browser, _, _ = agent_runtime.connect_user_browser("user")
@@ -135,7 +141,7 @@ class BrowserLeaseTests(unittest.TestCase):
             lease = agent_runtime.ensure_user_runtime("user", ("code", "browser"))
         self.assertIs(code, browser)
         self.assertEqual(sdk.create.call_count, 1)
-        self.assertEqual(sdk.create.call_args.kwargs["template"], "luma-aio")
+        self.assertEqual(sdk.create.call_args.kwargs["template"], "example-aio")
         self.assertEqual(len(conn.rows), 1)
         self.assertEqual(lease.capabilities, ("code", "browser"))
         self.assertEqual(lease.capability, "aio")
@@ -210,7 +216,7 @@ class BrowserLeaseTests(unittest.TestCase):
             with patch.object(agent_runtime, "config", return_value=_settings()):
                 agent_runtime.connect_user_sandbox("user")
                 agent_runtime.connect_user_browser("user")
-            with patch.object(agent_runtime, "config", return_value=_settings(aio_tool="luma-aio")), patch.object(
+            with patch.object(agent_runtime, "config", return_value=_settings(aio_tool="example-aio")), patch.object(
                 agent_runtime, "_sandbox_archive", return_value={"storage_key": "fake-backup", "size_bytes": 1}
             ) as archive, patch.object(agent_runtime, "_restore_workspace", return_value=True) as restore:
                 agent_runtime.connect_user_browser("user")

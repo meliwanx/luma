@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import 'api.dart';
 import 'brand.dart';
@@ -18,6 +19,26 @@ class AuthRepository {
   final FlutterSecureStorage _storage;
 
   Future<Map<String, dynamic>> authConfig() => _api.authConfig();
+
+  Future<Map<String, dynamic>> authProviders() => _api.authProviders();
+
+  Future<String> ssoPasswordLogin(String account, String password) async {
+    final token = await _api.ssoPasswordLogin(account, password);
+    await saveToken(token);
+    return token;
+  }
+
+  Future<Map<String, dynamic>> ssoStart({String nextPath = '/app'}) =>
+      _api.ssoStart(nextPath: nextPath);
+
+  Future<String> exchangeSso(SsoCallback callback) async {
+    final token = await _api.ssoExchange(
+      ticket: callback.ticket,
+      state: callback.state,
+    );
+    await saveToken(token);
+    return token;
+  }
 
   Future<String> login(String login, String password) async {
     final token = await _api.login(login, password);
@@ -96,6 +117,11 @@ class _AuthGateState extends State<AuthGate> {
   bool _signingIn = false;
   bool _registrationOpen = false;
   bool _requiresInvite = false;
+  bool _showLocalPassword = true;
+  bool _showSsoRedirect = false;
+  bool _showSsoCredentials = false;
+  String _ssoLabel = '单点登录';
+  String _accountLabel = '账号';
 
   @override
   void initState() {
@@ -125,20 +151,98 @@ class _AuthGateState extends State<AuthGate> {
 
   Future<void> _loadConfig() async {
     try {
-      final config = await _repository.authConfig();
+      final payload = await _repository.authProviders();
       if (!mounted) return;
-      setState(() {
-        _registrationOpen = config['registration_open'] == true;
-        _requiresInvite = config['requires_invite'] == true;
-      });
+      _applyProviders(payload);
+    } catch (_) {
+      try {
+        final config = await _repository.authConfig();
+        if (!mounted) return;
+        setState(() {
+          _showLocalPassword = true;
+          _showSsoRedirect = false;
+          _showSsoCredentials = false;
+          _registrationOpen = config['registration_open'] == true;
+          _requiresInvite = config['requires_invite'] == true;
+        });
+      } catch (error) {
+        if (mounted && _token == null) {
+          setState(
+            () => _error = error is AssistantApiException
+                ? error.message
+                : '注册配置加载失败，请稍后重试',
+          );
+        }
+      }
+    }
+  }
+
+  void _applyProviders(Map<String, dynamic> payload) {
+    final providers = payload['providers'];
+    if (providers is! List) {
+      throw const AssistantApiException('登录方式接口返回了无效响应');
+    }
+    var local = false;
+    var redirect = false;
+    var credentials = false;
+    for (final item in providers) {
+      if (item is! Map) continue;
+      if (item['kind'] == 'password') local = true;
+      if (item['kind'] == 'redirect') redirect = true;
+      if (item['kind'] == 'credentials') credentials = true;
+    }
+    final ssoLabel = payload['sso_label'];
+    final accountLabel = payload['account_label'];
+    setState(() {
+      _showLocalPassword = local;
+      _showSsoRedirect = redirect;
+      _showSsoCredentials = credentials;
+      _ssoLabel = ssoLabel is String && ssoLabel.trim().isNotEmpty
+          ? ssoLabel.trim()
+          : '单点登录';
+      _accountLabel = accountLabel is String && accountLabel.trim().isNotEmpty
+          ? accountLabel.trim()
+          : '账号';
+      _registrationOpen = local && payload['registration_open'] == true;
+      _requiresInvite = local && payload['requires_invite'] == true;
+    });
+  }
+
+  Future<void> _ssoSignIn() async {
+    if (_signingIn) return;
+    setState(() {
+      _signingIn = true;
+      _error = null;
+    });
+    try {
+      if (!AssistantApi.hasConfiguredBase) {
+        throw AssistantApiException(AssistantApi.configurationMessage);
+      }
+      final start = await _repository.ssoStart();
+      final url = start['url'];
+      final state = start['state'];
+      if (url is! String || state is! String || state.isEmpty || !ssoStartUrlAllowed(url)) {
+        throw const AssistantApiException('单点登录地址无效');
+      }
+      if (!mounted) return;
+      final callback = await Navigator.of(context).push<SsoCallback>(
+        MaterialPageRoute(
+          builder: (_) => SsoWebView(loginUrl: url, expectedState: state),
+        ),
+      );
+      if (callback == null || !mounted) return;
+      final token = await _repository.exchangeSso(callback);
+      if (mounted) setState(() => _token = token);
     } catch (error) {
-      if (mounted && _token == null) {
+      if (mounted) {
         setState(
           () => _error = error is AssistantApiException
               ? error.message
-              : '注册配置加载失败，请稍后重试',
+              : '登录失败，请稍后重试',
         );
       }
+    } finally {
+      if (mounted) setState(() => _signingIn = false);
     }
   }
 
@@ -210,6 +314,15 @@ class _AuthGateState extends State<AuthGate> {
               inviteCode: inviteCode,
             ),
           ),
+      showLocalPassword: _showLocalPassword,
+      showSsoRedirect: _showSsoRedirect,
+      showSsoCredentials: _showSsoCredentials,
+      ssoLabel: _ssoLabel,
+      accountLabel: _accountLabel,
+      onSso: _ssoSignIn,
+      onSsoPassword: (account, password) => _authenticate(
+        () => _repository.ssoPasswordLogin(account, password),
+      ),
     );
   }
 }
@@ -221,6 +334,13 @@ class LoginPage extends StatefulWidget {
     required this.busy,
     this.registrationOpen = false,
     this.requiresInvite = false,
+    this.showLocalPassword = true,
+    this.showSsoRedirect = false,
+    this.showSsoCredentials = false,
+    this.ssoLabel = '单点登录',
+    this.accountLabel = '账号',
+    this.onSso,
+    this.onSsoPassword,
     required this.onLogin,
     required this.onRegister,
   });
@@ -229,6 +349,13 @@ class LoginPage extends StatefulWidget {
   final bool busy;
   final bool registrationOpen;
   final bool requiresInvite;
+  final bool showLocalPassword;
+  final bool showSsoRedirect;
+  final bool showSsoCredentials;
+  final String ssoLabel;
+  final String accountLabel;
+  final Future<void> Function()? onSso;
+  final Future<void> Function(String account, String password)? onSsoPassword;
   final Future<void> Function(String login, String password) onLogin;
   final Future<void> Function(
     String username,
@@ -251,6 +378,8 @@ class _LoginPageState extends State<LoginPage> {
   final _displayName = TextEditingController();
   final _confirmation = TextEditingController();
   final _invite = TextEditingController();
+  final _ssoAccount = TextEditingController();
+  final _ssoPassword = TextEditingController();
   final _passwordFocus = FocusNode();
   bool _showPassword = false;
   bool _registering = false;
@@ -271,6 +400,8 @@ class _LoginPageState extends State<LoginPage> {
       _displayName,
       _confirmation,
       _invite,
+      _ssoAccount,
+      _ssoPassword,
     ]) {
       controller.dispose();
     }
@@ -308,6 +439,23 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) {
         _password.clear();
         _confirmation.clear();
+        setState(() => _submitting = false);
+      }
+    }
+  }
+
+  Future<void> _submitSsoPassword() async {
+    if (widget.busy || _submitting || widget.onSsoPassword == null) return;
+    final account = _ssoAccount.text.trim();
+    final password = _ssoPassword.text;
+    if (account.isEmpty || password.isEmpty) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _submitting = true);
+    try {
+      await widget.onSsoPassword!(account, password);
+    } finally {
+      if (mounted) {
+        _ssoPassword.clear();
         setState(() => _submitting = false);
       }
     }
@@ -362,7 +510,9 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 22),
                           Text(
-                            _registering ? '注册 Luma' : '登录 Luma',
+                            _registering
+                                ? '注册 ${context.brand.name}'
+                                : '登录 ${context.brand.name}',
                             style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.w700,
@@ -374,6 +524,7 @@ class _LoginPageState extends State<LoginPage> {
                             style: TextStyle(color: colors.muted, height: 1.5),
                           ),
                           const SizedBox(height: 20),
+                          if (widget.showLocalPassword) ...[
                           if (widget.registrationOpen) ...[
                             SizedBox(
                               width: double.infinity,
@@ -561,6 +712,64 @@ class _LoginPageState extends State<LoginPage> {
                                   : Text(_registering ? '注册' : '登录'),
                             ),
                           ),
+                          ],
+                          if (widget.showSsoRedirect)
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton(
+                                key: const Key('sso-login'),
+                                onPressed: enabled ? widget.onSso : null,
+                                child: Text(widget.ssoLabel),
+                              ),
+                            ),
+                          if (widget.showSsoCredentials) ...[
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              key: const Key('sso-account'),
+                              controller: _ssoAccount,
+                              enabled: enabled,
+                              autocorrect: false,
+                              textInputAction: TextInputAction.next,
+                              maxLength: 64,
+                              decoration: decoration(
+                                widget.accountLabel,
+                              ).copyWith(counterText: ''),
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              key: const Key('sso-password'),
+                              controller: _ssoPassword,
+                              enabled: enabled,
+                              obscureText: true,
+                              autocorrect: false,
+                              enableSuggestions: false,
+                              textInputAction: TextInputAction.done,
+                              maxLength: 128,
+                              decoration: decoration('密码').copyWith(counterText: ''),
+                              onFieldSubmitted: (_) => _submitSsoPassword(),
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton(
+                                key: const Key('sso-credentials-submit'),
+                                onPressed: enabled ? _submitSsoPassword : null,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: colors.accent,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('登录'),
+                              ),
+                            ),
+                          ],
+                          if (!widget.showLocalPassword && widget.error != null) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              widget.error!,
+                              key: const Key('login-error'),
+                              style: TextStyle(color: colors.danger, fontSize: 12),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -570,6 +779,113 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class SsoCallback {
+  const SsoCallback({required this.ticket, this.state});
+
+  final String ticket;
+  final String? state;
+}
+
+/// Accepts the login URL returned by `/auth/sso/start`.
+/// HTTPS is required except for loopback HTTP used in local development.
+bool ssoStartUrlAllowed(String value) {
+  final parsed = Uri.tryParse(value.trim());
+  if (parsed == null || !parsed.hasScheme || parsed.host.isEmpty) return false;
+  final scheme = parsed.scheme.toLowerCase();
+  if (scheme == 'https') return true;
+  if (scheme != 'http') return false;
+  final host = parsed.host.toLowerCase();
+  return host == 'localhost' || host == '127.0.0.1' || host == '::1';
+}
+
+bool isAppSsoCallback(Uri uri, String appBase) {
+  final baseOrigin = AssistantApi.originOf(appBase);
+  if (baseOrigin == null) return false;
+  return AssistantApi.originOf(uri.toString()) == baseOrigin &&
+      uri.path == '/sso-callback';
+}
+
+/// Reads a same-origin `/sso-callback`. Ticket-only callbacks are accepted.
+/// A state, when present, must match [expectedState].
+SsoCallback? readSsoCallback(
+  Uri uri, {
+  required String appBase,
+  String? expectedState,
+}) {
+  if (!isAppSsoCallback(uri, appBase)) return null;
+  final ticket = uri.queryParameters['ticket'] ?? '';
+  if (ticket.isEmpty) return null;
+  final state = uri.queryParameters['state'];
+  if (state != null && state.isNotEmpty && state != expectedState) return null;
+  return SsoCallback(ticket: ticket, state: state);
+}
+
+class SsoWebView extends StatefulWidget {
+  const SsoWebView({
+    super.key,
+    required this.loginUrl,
+    required this.expectedState,
+  });
+
+  final String loginUrl;
+  final String expectedState;
+
+  @override
+  State<SsoWebView> createState() => _SsoWebViewState();
+}
+
+class _SsoWebViewState extends State<SsoWebView> {
+  late final WebViewController _controller;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onNavigationRequest: (request) {
+            final uri = Uri.tryParse(request.url);
+            if (uri == null) return NavigationDecision.navigate;
+            if (!isAppSsoCallback(uri, AssistantApi.base)) {
+              return NavigationDecision.navigate;
+            }
+            final callback = readSsoCallback(
+              uri,
+              appBase: AssistantApi.base,
+              expectedState: widget.expectedState,
+            );
+            if (callback == null) {
+              setState(() => _error = '登录回调校验失败，请重新发起登录');
+              return NavigationDecision.prevent;
+            }
+            Navigator.of(context).pop(callback);
+            return NavigationDecision.prevent;
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.loginUrl));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('单点登录')),
+      body: Column(
+        children: [
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+            ),
+          Expanded(child: WebViewWidget(controller: _controller)),
+        ],
       ),
     );
   }

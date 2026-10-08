@@ -342,10 +342,10 @@ class MigrationTests(unittest.TestCase):
                 command.upgrade(config, "heads")
                 connection.commit()
                 versions = connection.execute(text("SELECT version_num FROM alembic_version")).fetchall()
-                self.assertEqual([row[0] for row in versions], ["0018_accounts"])
+                self.assertEqual([row[0] for row in versions], ["0019_auth_providers"])
 
             script = ScriptDirectory.from_config(config)
-            self.assertEqual(script.get_heads(), ["0018_accounts"])
+            self.assertEqual(script.get_heads(), ["0019_auth_providers"])
             self.assertEqual(script.get_revision("0016_proactive_feed").down_revision, "0014_model_calls")
             self.assertEqual(set(script.get_revision("0017_merge_features").down_revision), {"0015_library_ideas", "0016_proactive_feed"})
             for revision in ("0004_stream", "0005_memory", "0006_scheduler", "0007_files"):

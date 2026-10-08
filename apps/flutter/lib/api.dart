@@ -35,6 +35,32 @@ class AssistantApi {
   static String get configurationMessage =>
       '此版本未配置服务器地址，需要使用 --dart-define=API_BASE_URL=... 构建';
 
+  /// Normalize a service URL to an origin. HTTP is accepted only for loopback
+  /// when [requireSecure] is set, so a redirect target cannot silently downgrade.
+  static String? originOf(String? value, {bool requireSecure = false}) {
+    final raw = (value ?? '').trim();
+    if (raw.isEmpty) return null;
+    final parsed = Uri.tryParse(raw);
+    if (parsed == null || !parsed.hasScheme || parsed.host.isEmpty) {
+      return null;
+    }
+    final scheme = parsed.scheme.toLowerCase();
+    final host = parsed.host.toLowerCase();
+    final localHost =
+        host == 'localhost' || host == '127.0.0.1' || host == '::1';
+    if (scheme != 'https' && scheme != 'http') return null;
+    if (requireSecure && scheme != 'https' && !(scheme == 'http' && localHost)) {
+      return null;
+    }
+    final port =
+        parsed.hasPort &&
+            !((scheme == 'https' && parsed.port == 443) ||
+                (scheme == 'http' && parsed.port == 80))
+        ? parsed.port
+        : null;
+    return Uri(scheme: scheme, host: host, port: port).toString();
+  }
+
   Future<Map<String, dynamic>> authConfig() async {
     final result = await _accountRequest(
       'GET',
@@ -48,6 +74,111 @@ class AssistantApi {
       throw const AssistantApiException('注册配置接口返回了无效响应');
     }
     return Map<String, dynamic>.from(result);
+  }
+
+  Future<Map<String, dynamic>> authProviders() async {
+    final result = await _accountRequest(
+      'GET',
+      '/api/v1/auth/providers',
+      '登录方式加载失败',
+      authenticated: false,
+    );
+    if (result is! Map || result['providers'] is! List) {
+      throw const AssistantApiException('登录方式接口返回了无效响应');
+    }
+    return Map<String, dynamic>.from(result);
+  }
+
+  /// Public product identity. Callers fall back to build-time defaults when
+  /// this request fails or the payload is not an object.
+  Future<Map<String, dynamic>> brand() async {
+    final result = await _accountRequest(
+      'GET',
+      '/api/v1/brand',
+      '品牌配置加载失败',
+      authenticated: false,
+    );
+    if (result is! Map) {
+      throw const AssistantApiException('品牌配置接口返回了无效响应');
+    }
+    return Map<String, dynamic>.from(result);
+  }
+
+  /// Public client settings, including the browser live-view host suffixes.
+  /// Callers keep the built-in default when this request fails.
+  Future<Map<String, dynamic>> clientConfig() async {
+    final result = await _accountRequest(
+      'GET',
+      '/api/v1/client-config',
+      '客户端配置加载失败',
+      authenticated: false,
+    );
+    if (result is! Map || result['browser_live_host_suffixes'] is! List) {
+      throw const AssistantApiException('客户端配置接口返回了无效响应');
+    }
+    return Map<String, dynamic>.from(result);
+  }
+
+  Future<String> ssoPasswordLogin(String account, String password) async {
+    try {
+      final request = http.Request(
+        'POST',
+        _uri('/api/v1/auth/password/login'),
+      )
+        ..headers.addAll(_headers(json: true, authenticated: false))
+        ..body = jsonEncode({'account': account, 'password': password});
+      final response = await http.Response.fromStream(
+        await _client.send(request).timeout(const Duration(seconds: 20)),
+      );
+      if (response.statusCode != 200) {
+        final retry = response.headers['retry-after'];
+        final message = response.statusCode == 401
+            ? '账号或密码错误'
+            : response.statusCode == 429
+            ? (retry == '900'
+                  ? '尝试次数过多，请 15 分钟后再试'
+                  : '尝试次数过多，请稍后再试')
+            : response.statusCode == 502 || response.statusCode == 503
+            ? '登录服务暂时不可用'
+            : '登录失败，请稍后重试';
+        throw AssistantApiException(message, statusCode: response.statusCode);
+      }
+      return _sessionToken(_decode(response));
+    } on AssistantApiException {
+      rethrow;
+    } catch (_) {
+      throw const AssistantApiException('登录失败，请稍后重试');
+    }
+  }
+
+  Future<Map<String, dynamic>> ssoStart({String nextPath = '/app'}) async {
+    final safeNext = nextPath.startsWith('/') && !nextPath.startsWith('//')
+        ? nextPath
+        : '/app';
+    final result = await _accountRequest(
+      'GET',
+      '/api/v1/auth/sso/start?next=${Uri.encodeQueryComponent(safeNext)}',
+      '无法创建单点登录会话',
+      authenticated: false,
+    );
+    if (result is! Map || result['url'] is! String || result['state'] is! String) {
+      throw const AssistantApiException('单点登录地址无效');
+    }
+    return Map<String, dynamic>.from(result);
+  }
+
+  Future<String> ssoExchange({required String ticket, String? state}) async {
+    final result = await _accountRequest(
+      'POST',
+      '/api/v1/auth/sso/exchange',
+      '单点登录暂时不可用',
+      authenticated: false,
+      body: {
+        'ticket': ticket,
+        if (state != null && state.isNotEmpty) 'state': state,
+      },
+    );
+    return _sessionToken(result);
   }
 
   Future<String> login(String login, String password) async {

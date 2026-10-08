@@ -23,6 +23,7 @@ from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Tup
 from urllib.parse import urlsplit
 
 from .. import agent_runtime, mcp
+from ..brand import product_slug
 from ..db import get_connection
 from ..mappers import parse_json
 from ..services import files as files_service
@@ -904,7 +905,7 @@ async def _sandbox_files_export(ctx: AgentContext, args: Dict[str, Any]) -> Tool
         export_path = resolved
         archive_name = None
         if is_directory:
-            archive_name = "luma-export-%s" % uuid.uuid4().hex
+            archive_name = "%s-export-%s" % (product_slug(), uuid.uuid4().hex)
             archive_base = "/home/user/" + archive_name
             archive_zip = archive_base + ".zip"
             archive_tar = archive_base + ".tar.gz"
@@ -1017,7 +1018,9 @@ async def _sandbox_preview(ctx: AgentContext, args: Dict[str, Any]) -> ToolResul
         else:
             url = "https://" + raw
         parsed = urlsplit(url)
-        suffix = os.getenv("SANDBOX_PREVIEW_HOST_SUFFIX", ".tencentags.com").strip().lower() or ".tencentags.com"
+        suffix = agent_runtime.sandbox_host_suffix()
+        if not suffix:
+            return _result({"kind": "preview", "error": "SANDBOX_PREVIEW_HOST_SUFFIX 或 E2B_DOMAIN 未配置"}, "error")
         hostname = (parsed.hostname or "").lower()
         if parsed.scheme != "https" or not hostname.endswith(suffix):
             raise ValueError("preview host is not trusted")
@@ -1034,7 +1037,7 @@ async def _sandbox_preview(ctx: AgentContext, args: Dict[str, Any]) -> ToolResul
 
 def _sandbox_enabled() -> bool:
     try:
-        return bool(agent_runtime.config().enabled)
+        return bool(agent_runtime.sandbox_tools_configured())
     except Exception:
         return False
 

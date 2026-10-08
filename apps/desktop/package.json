@@ -10,77 +10,13 @@
     "dev": "electron .",
     "start": "electron .",
     "build:web": "npm --prefix ../web run build",
-    "dist:mac": "electron-builder --mac --publish never",
-    "dist:win": "electron-builder --win --publish never",
-    "check": "node --check main.js && node --check preload.js",
+    "dist:mac": "electron-builder --config electron-builder.config.js --mac --publish never",
+    "dist:win": "electron-builder --config electron-builder.config.js --win --publish never",
+    "check": "node --check main.js && node --check preload.js && node --check electron-builder.config.js && node --check scripts/apply-brand.js",
     "test": "node --test tests/*.test.js"
   },
   "devDependencies": {
     "electron": "^32.1.2",
     "electron-builder": "^26.17.0"
-  },
-  "build": {
-    "appId": "com.example.luma",
-    "productName": "Luma",
-    "copyright": "Copyright © Luma contributors",
-    "directories": {
-      "buildResources": "build",
-      "output": "dist"
-    },
-    "files": [
-      "main.js",
-      "preload.js",
-      "config.example.json",
-      "build/icon.png",
-      "build/icon.ico",
-      "build/trayTemplate.png",
-      "build/trayTemplate@2x.png",
-      "build/tray.png",
-      "build/tray@2x.png"
-    ],
-    "extraResources": [
-      {
-        "from": "config.local.json",
-        "to": "config.json"
-      }
-    ],
-    "mac": {
-      "target": [
-        {
-          "target": "dmg",
-          "arch": ["arm64", "x64"]
-        },
-        {
-          "target": "zip",
-          "arch": ["arm64", "x64"]
-        }
-      ],
-      "artifactName": "Luma-${version}-${arch}.${ext}",
-      "icon": "build/icon.icns",
-      "category": "public.app-category.productivity",
-      "forceCodeSigning": true,
-      "hardenedRuntime": true,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist",
-      "notarize": false,
-      "extendInfo": {
-        "NSMicrophoneUsageDescription": "用于语音输入，录音只用于转写成文字"
-      }
-    },
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": ["x64"]
-        }
-      ],
-      "icon": "build/icon.ico",
-      "artifactName": "Luma-Setup-${version}.exe"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
-    }
   }
 }

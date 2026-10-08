@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { fetchFileBlob, isBrowserLiveUrl, isImageFile } from './browser-tools.js'
+import { browserLiveHostSuffixes, fetchFileBlob, isBrowserLiveUrl, isImageFile, subscribeBrowserLiveHostSuffixes } from './browser-tools.js'
 
 const TERMINAL_JOB_STATUSES = new Set(['succeeded', 'failed', 'cancelled', 'done', 'completed'])
 const SANDBOX_CARD_KINDS = new Set(['sandbox', 'file', 'sandbox_import', 'preview', 'sandbox_job', 'browser_live'])
@@ -118,13 +118,15 @@ function BrowserLiveCard({ item }) {
   const url = String(valueFor(item, 'url') || '')
   const expiresIn = Number(valueFor(item, 'expires_in', 0))
   const [expired, setExpired] = useState(false)
+  const [suffixes, setSuffixes] = useState(() => browserLiveHostSuffixes())
+  useEffect(() => subscribeBrowserLiveHostSuffixes(setSuffixes), [])
   useEffect(() => {
     setExpired(false)
     if (!Number.isFinite(expiresIn) || expiresIn <= 0) return undefined
     const timer = window.setTimeout(() => setExpired(true), expiresIn * 1000)
     return () => window.clearTimeout(timer)
   }, [url, expiresIn])
-  const valid = isBrowserLiveUrl(url) && !expired
+  const valid = isBrowserLiveUrl(url, suffixes) && !expired
   return <article className="sandbox-tool-card sandbox-browser-card">
     <div className="sandbox-tool-head"><strong>浏览器实时画面</strong></div>
     {valid ? <a className="sandbox-file-download" href={url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">观看实时画面</a> : <span>{expired ? '实时画面已过期，请重新打开' : '实时画面暂不可用'}</span>}

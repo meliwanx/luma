@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../brand.dart';
 import '../glass.dart';
 import '../markdown.dart';
 import '../theme.dart';
@@ -274,7 +275,7 @@ class _IdeasViewState extends State<IdeasView> {
                             const Text('还没有点子'),
                             const SizedBox(height: 8),
                             Text(
-                              '和 Luma 聊聊你想做的事，灵感会在这里出现。',
+                              '和 ${context.brand.name} 聊聊你想做的事，灵感会在这里出现。',
                               style: TextStyle(color: context.muse.muted),
                             ),
                           ],

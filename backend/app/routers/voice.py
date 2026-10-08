@@ -1,4 +1,4 @@
-"""Authenticated, in-memory voice input for all Luma clients."""
+"""Authenticated, in-memory voice input for all clients."""
 
 from __future__ import annotations
 

@@ -80,16 +80,21 @@ Do not paste rendered Compose configuration or environment files into public log
 | `redisdata` | Redis AOF, sessions, rate-limit counters and generation events |
 | `filesdata` | Local uploads and sandbox backup objects under `backend/data` |
 
-`FILE_STORAGE` accepts `local`, `cos` or `fileservice`. This release has no S3
+`FILE_STORAGE` accepts the built-in values `local` and `cos`. The `fileservice`
+backend is the example plugin `plugins_examples.fileservice` and stays unloaded
+until `LUMA_PLUGINS` names it. See `docs/extending.md`. This release has no S3
 adapter. COS and file-service credentials remain server-side. Keep every storage
 backend used by existing file rows configured until those files are migrated or
 deleted. The local volume is still needed for staging and sandbox backups when
 remote file storage is enabled. Provision remote-storage backups independently.
 
 Agent code and browser tools require Tencent Cloud Agent Runtime. Set
-`AGENT_RUNTIME_ENABLED=true`, `AGENT_RUNTIME_API_MODE=e2b`, your `E2B_DOMAIN`
-(for example `ap-hongkong.tencentags.com`), `E2B_API_KEY`, and provisioned tool
-names. An unavailable sandbox prevents execution; the API host does not execute
+`AGENT_RUNTIME_ENABLED=true`, `AGENT_RUNTIME_API_MODE=e2b`, your `E2B_DOMAIN`,
+`E2B_API_KEY`, and provisioned tool names. Region and tool names have no
+default; set `AGENT_RUNTIME_REGION` for cloud API mode and
+`AGENT_RUNTIME_CODE_TOOL` / `AGENT_RUNTIME_BROWSER_TOOL` (or
+`AGENT_RUNTIME_AIO_TOOL`) before enabling the sandbox. An unavailable sandbox
+prevents execution; the API host does not execute
 user or model commands.
 
 ## Upgrading an existing database

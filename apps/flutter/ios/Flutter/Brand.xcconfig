@@ -1,0 +1,6 @@
+// Open-source defaults. scripts/build_ios_release.sh writes Brand.local.xcconfig
+// to override the display name and bundle identifier.
+BRAND_DISPLAY_NAME=Luma
+PRODUCT_BUNDLE_IDENTIFIER=app.luma.client
+
+#include? "Brand.local.xcconfig"

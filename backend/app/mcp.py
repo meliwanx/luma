@@ -17,6 +17,7 @@ import httpcore
 import httpx
 from cryptography.fernet import Fernet, InvalidToken
 
+from .brand import get_brand
 from .tool_results import tool_result_text
 
 
@@ -309,7 +310,7 @@ class MCPClient:
         return value
 
     def initialize(self) -> dict[str, Any]:
-        result = self._post("initialize", {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "Luma", "version": "0.1.0"}}, timeout=15)
+        result = self._post("initialize", {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": get_brand().product_name, "version": "0.1.0"}}, timeout=15)
         # The session id is an HTTP response header and is intentionally only
         # kept in this short-lived client.
         if isinstance(result, dict):

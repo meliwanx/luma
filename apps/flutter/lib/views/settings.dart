@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../brand.dart';
 import '../preferences.dart';
 import '../theme.dart';
 import 'account.dart';
@@ -316,7 +317,7 @@ class SettingsView extends StatelessWidget {
               key: const Key('settings-memory'),
               icon: Icons.book_outlined,
               title: '管理记忆',
-              subtitle: '查看和确认 Luma 记住的内容',
+              subtitle: '查看和确认 ${context.brand.name} 记住的内容',
               onTap: () => Navigator.of(context).push<void>(
                 MaterialPageRoute(
                   builder: (context) => Scaffold(
@@ -351,9 +352,9 @@ class SettingsView extends StatelessWidget {
           _SettingsGroup(
             child: Column(
               children: [
-                const ListTile(
-                  title: Text('Luma 个人助理'),
-                  subtitle: Text('版本 $_appVersion'),
+                ListTile(
+                  title: Text(context.brand.aboutTitle),
+                  subtitle: const Text('版本 $_appVersion'),
                 ),
                 if (onLogout != null)
                   _SettingsLink(
@@ -846,7 +847,7 @@ class _PermissionsSandboxViewState extends State<PermissionsSandboxView> {
       case 'browser':
         return '浏览器权限';
       default:
-        return 'Luma 权限';
+        return '${context.brand.name} 权限';
     }
   }
 
