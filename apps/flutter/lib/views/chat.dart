@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 
 import '../api.dart';
+import '../brand.dart';
 import '../browser_tools.dart';
 import '../glass.dart';
 import '../mcp_utils.dart';
@@ -599,7 +600,7 @@ class _ChatViewState extends State<ChatView>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '早上好，我是 Luma',
+              '早上好，我是 ${context.brand.name}',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: context.muse.text,
@@ -817,7 +818,9 @@ class _ChatViewState extends State<ChatView>
                   builder: (dialog) => AlertDialog(
                     title: const Text('为什么发给你'),
                     content: Text(
-                      reason.isEmpty ? 'Luma 想主动帮你跟进关心的事。' : reason,
+                      reason.isEmpty
+                          ? '${context.brand.name} 想主动帮你跟进关心的事。'
+                          : reason,
                     ),
                     actions: [
                       TextButton(
@@ -1973,7 +1976,7 @@ class _ThinkingDotsState extends State<_ThinkingDots>
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: 'Luma 正在思考',
+    label: '${context.brand.name} 正在思考',
     container: true,
     child: AnimatedBuilder(
       animation: _animation,

@@ -19,6 +19,8 @@ Flutter/App.framework
 Flutter/Flutter.framework
 Flutter/Flutter.podspec
 Flutter/Generated.xcconfig
+Flutter/Brand.local.xcconfig
+ExportOptions.local.plist
 Flutter/ephemeral/
 Flutter/app.flx
 Flutter/app.zip

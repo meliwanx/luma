@@ -4,6 +4,13 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val brandAppId =
+    (findProperty("brandAppId") as? String)?.takeIf { it.isNotBlank() }
+        ?: "app.luma.client"
+val brandDisplayName =
+    (findProperty("brandDisplayName") as? String)?.takeIf { it.isNotBlank() }
+        ?: "Luma"
+
 android {
     namespace = "com.example.luma_client"
     compileSdk = flutter.compileSdkVersion
@@ -16,7 +23,8 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.luma_client"
+        applicationId = brandAppId
+        resValue("string", "app_name", brandDisplayName)
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

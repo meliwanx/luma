@@ -362,7 +362,9 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                           const SizedBox(height: 22),
                           Text(
-                            _registering ? '注册 Luma' : '登录 Luma',
+                            _registering
+                                ? '注册 ${context.brand.name}'
+                                : '登录 ${context.brand.name}',
                             style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.w700,
