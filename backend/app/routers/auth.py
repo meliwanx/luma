@@ -1,14 +1,14 @@
-"""JSON account login, registration and device-session endpoints."""
+"""Shared session endpoints. Login providers mount their own routes."""
 
 from typing import Any, Optional, Type
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from ..auth import (
     current_user, list_auth_sessions, logout as revoke_auth_session, logout_all,
-    password_login, register_account, registration_config, revoke_auth_session_by_id,
+    revoke_auth_session_by_id,
 )
 from ._common import get_connection, owner_id
 
@@ -44,44 +44,18 @@ async def json_payload(request: Request, model: Type[BaseModel]) -> Any:
         raise HTTPException(status_code=422, detail="提交信息格式无效") from None
 
 
-async def _login_payload(request: Request) -> LoginPayload:
-    payload = await json_payload(request, LoginPayload)
-    if not payload.login.strip():
-        raise HTTPException(status_code=422, detail="提交信息格式无效")
-    return payload
-
-
-async def _register_payload(request: Request) -> RegisterPayload:
-    return await json_payload(request, RegisterPayload)
-
-
-def set_json_body(response: JSONResponse, content: Any) -> JSONResponse:
-    response.body = JSONResponse(content=content).body
-    response.headers["content-length"] = str(len(response.body))
-    return response
-
-
 def _json_request(model: Type[BaseModel]) -> dict[str, Any]:
     return {"requestBody": {"required": True, "content": {"application/json": {"schema": model.model_json_schema()}}}}
 
 
-@router.get("/api/v1/auth/config")
-def auth_config() -> dict[str, bool]:
-    return registration_config()
+@router.get("/api/v1/auth/providers")
+def auth_providers() -> dict[str, Any]:
+    from ..auth_providers import public_providers
 
-
-@router.post("/api/v1/auth/register", openapi_extra=_json_request(RegisterPayload))
-def auth_register(request: Request, payload: RegisterPayload = Depends(_register_payload)) -> JSONResponse:
-    response = JSONResponse(content={})
-    data = register_account(payload.username, payload.password, payload.email, payload.display_name,
-                            payload.invite_code, response, request, bootstrap_token=payload.bootstrap_token)
-    return set_json_body(response, data)
-
-
-@router.post("/api/v1/auth/login", openapi_extra=_json_request(LoginPayload))
-def auth_login(request: Request, payload: LoginPayload = Depends(_login_payload)) -> JSONResponse:
-    response = JSONResponse(content={})
-    return set_json_body(response, password_login(payload.login, payload.password, response, request))
+    try:
+        return public_providers()
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="登录配置无效") from None
 
 
 @router.get("/api/v1/auth/me")

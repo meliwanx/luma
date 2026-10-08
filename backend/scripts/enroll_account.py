@@ -35,12 +35,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         auth.validate_password(password, args.username)
         encoded = auth.hash_password(password)
         with get_connection() as conn:
-            row = conn.execute("SELECT password_hash FROM users WHERE user_id = ? FOR UPDATE", (args.user_id,)).fetchone()
-            if row is None or row["password_hash"]:
+            row = conn.execute(
+                "SELECT password_hash, auth_provider FROM users WHERE user_id = ? FOR UPDATE",
+                (args.user_id,),
+            ).fetchone()
+            provider = str((row or {}).get("auth_provider") or "")
+            if row is None or row["password_hash"] or provider == "sso":
                 print("Only an existing account without credentials can be enrolled", file=sys.stderr)
                 return 1
             conn.execute(
                 "UPDATE users SET username = ?, password_hash = ?, password_changed_at = ?, status = 'active', "
+                "auth_provider = 'password', "
                 "role = CASE WHEN ? THEN 'admin' ELSE role END, session_version = session_version + 1 WHERE user_id = ?",
                 (args.username, encoded, auth._timestamp(), args.admin, args.user_id),
             )

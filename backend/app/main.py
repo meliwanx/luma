@@ -30,6 +30,7 @@ from .services.memory import shutdown_memory_workers
 from .services.seed import ensure_default_data
 from .services import generation
 from .upload_limit import UploadSizeLimitMiddleware
+from .auth_providers import mount_providers
 from .routers import account, artifacts, auth, chat, connectors, dashboard, export, files, goals, health, ideas, library, memories, notifications, push, routines, runtime, sandbox, search, sessions, tasks, usage, voice
 from .routers import feed, proactive
 
@@ -167,6 +168,7 @@ app.include_router(health.router)
 app.include_router(runtime.status_router)
 app.include_router(sandbox.router)
 app.include_router(auth.router)
+mount_providers(app)
 app.include_router(account.router)
 app.include_router(sessions.router)
 app.include_router(search.router)
