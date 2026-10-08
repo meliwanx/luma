@@ -39,13 +39,13 @@ List<String> normalizeBrowserLiveHostSuffixes(Object? raw) {
 typedef BrowserLiveHostLoader = Future<Map<String, dynamic>> Function();
 
 class BrowserLiveHosts extends ChangeNotifier {
-  BrowserLiveHosts({BrowserLiveHostLoader? load}) : _load = load;
+  BrowserLiveHosts({this.load});
 
   static final BrowserLiveHosts instance = BrowserLiveHosts(
     load: _fetchClientConfig,
   );
 
-  final BrowserLiveHostLoader? _load;
+  final BrowserLiveHostLoader? load;
   List<String> _suffixes = List<String>.from(defaultBrowserLiveHostSuffixes);
 
   List<String> get suffixes => List<String>.unmodifiable(_suffixes);
@@ -60,7 +60,7 @@ class BrowserLiveHosts extends ChangeNotifier {
 
   /// A failed or incomplete response restores the public default suffix.
   Future<void> refresh() async {
-    final fetch = _load;
+    final fetch = load;
     if (fetch == null) return;
     try {
       final payload = await fetch();
