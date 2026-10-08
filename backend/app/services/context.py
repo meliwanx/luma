@@ -482,7 +482,7 @@ def _system_with_tools(messages: list[dict[str, Any]], user_id: str, conn: Any =
     try:
         from .. import agent_runtime
 
-        sandbox_enabled = bool(agent_runtime.config().enabled)
+        sandbox_enabled = bool(agent_runtime.sandbox_tools_configured())
     except Exception:
         sandbox_enabled = False
     if sandbox_enabled:

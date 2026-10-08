@@ -109,8 +109,11 @@ characters, and must start with a letter.
 ## Sandbox and speech defaults
 
 Sandbox region, tool names and the data-plane host suffix are empty unless the
-deployment sets them. When the adapter is enabled and a required value is
-missing, status and the failing call name the variable:
+deployment sets them. Sandbox and browser tools are not registered until a tool
+name, or `AGENT_RUNTIME_AIO_TOOL`, is set, so the model does not see them.
+Status `reason` is `未配置` while the adapter is off, and `未配置：` plus the
+variable names when it is on but incomplete. A call that still reaches the
+adapter raises `AgentRuntimeUnavailable` and names the missing variable.
 
 | Variable | Default | Used when |
 | --- | --- | --- |

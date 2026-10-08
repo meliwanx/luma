@@ -1037,7 +1037,7 @@ async def _sandbox_preview(ctx: AgentContext, args: Dict[str, Any]) -> ToolResul
 
 def _sandbox_enabled() -> bool:
     try:
-        return bool(agent_runtime.config().enabled)
+        return bool(agent_runtime.sandbox_tools_configured())
     except Exception:
         return False
 

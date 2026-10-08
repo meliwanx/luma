@@ -190,6 +190,29 @@ def config() -> AgentRuntimeConfig:
     )
 
 
+def sandbox_tools_configured(settings: Optional[AgentRuntimeConfig] = None) -> bool:
+    """Whether the model should see sandbox and browser tools.
+
+    The adapter has to be enabled, and at least one provisioned tool name must
+    be set. Cloud API mode may use a tool id instead of a name. Empty defaults
+    stay hidden so the model never sees a tool that cannot be called.
+    """
+
+    current = config() if settings is None else settings
+    if not getattr(current, "enabled", False):
+        return False
+    if str(getattr(current, "aio_tool", "") or "").strip():
+        return True
+    if str(getattr(current, "code_tool", "") or "").strip() or str(getattr(current, "browser_tool", "") or "").strip():
+        return True
+    if str(getattr(current, "api_mode", "") or "") == "cloud-api":
+        return bool(
+            str(getattr(current, "code_tool_id", "") or "").strip()
+            or str(getattr(current, "browser_tool_id", "") or "").strip()
+        )
+    return False
+
+
 def _hash_user(user_id: str) -> str:
     return hashlib.sha256((user_id or "local").encode("utf-8")).hexdigest()[:32]
 
@@ -1068,10 +1091,10 @@ def _missing_runtime_settings(settings: AgentRuntimeConfig) -> list[str]:
 
 def _status_reason(settings: AgentRuntimeConfig) -> str:
     if not settings.enabled:
-        return "not_configured"
+        return "未配置"
     missing = _missing_runtime_settings(settings)
     if missing:
-        return "missing:" + ",".join(missing)
+        return "未配置：" + ",".join(missing)
     return "ready"
 
 
