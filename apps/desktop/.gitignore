@@ -4,7 +4,17 @@ release/
 .env
 config.local.json
 
-# Keep the signing policy visible despite the repository-wide build ignore.
+# Keep the signing policy and default Luma icons visible despite the repository-wide build ignore.
 !build/
 build/*
 !build/entitlements.mac.plist
+!build/brand-icons.json
+!build/icon.icns
+!build/icon.ico
+!build/icon.png
+!build/icon-macos-1024.png
+!build/icon-windows-*.png
+!build/tray.png
+!build/tray@2x.png
+!build/trayTemplate.png
+!build/trayTemplate@2x.png

@@ -1,0 +1,335 @@
+[
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@2x.png",
+    "sha256": "c1527d77b473c52091509e5c6da19512b4c93f512837a7df4b3015bfad729367",
+    "width": 40,
+    "height": 40,
+    "alpha": false
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@3x.png",
+    "sha256": "3bf43a2aacbffc93b54db9b627915c0592009091de36aa63f43f965d11f47d8c",
+    "width": 60,
+    "height": 60,
+    "alpha": false
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@1x.png",
+    "sha256": "3464d8546f921fc73dca5d66e3cee31a0ac99ec8e9619562f127001f46feaee5",
+    "width": 29,
+    "height": 29,
+    "alpha": false
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@2x.png",
+    "sha256": "24d759c7a6b7671f916861e6735d87890ce55e3a54c4ec9372da95bf5de629d4",
+    "width": 58,
+    "height": 58,
+    "alpha": false
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-29x29@3x.png",
+    "sha256": "978d9eb35672d8de3145cfb9674fe15624bc91ef2236ccb47a77c9661a3588d4",
+    "width": 87,
+    "height": 87,
+    "alpha": false
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@2x.png",
+    "sha256": "991e83c882a3c4dbaa6e0af5516e5ce003ff65d61219015094490693ded1690a",
+    "width": 80,
+    "height": 80,
+    "alpha": false
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@3x.png",
+    "sha256": "23a8d126feab0bb49a209f08363f45e50697d57cc70cff5b79d7c6b23a082cb0",
+    "width": 120,
+    "height": 120,
+    "alpha": false
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@2x.png",
+    "sha256": "23a8d126feab0bb49a209f08363f45e50697d57cc70cff5b79d7c6b23a082cb0",
+    "width": 120,
+    "height": 120,
+    "alpha": false
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-60x60@3x.png",
+    "sha256": "8ceb8c6d880d23ae6bad0215389af273812a9a7c2fa53f548c87a86852ba128e",
+    "width": 180,
+    "height": 180,
+    "alpha": false
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-20x20@1x.png",
+    "sha256": "3aeef2f057d1db59a481259fea3b0da9f9eebef6ba4548d2fe9899c7cf2e85f5",
+    "width": 20,
+    "height": 20,
+    "alpha": false
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-40x40@1x.png",
+    "sha256": "c1527d77b473c52091509e5c6da19512b4c93f512837a7df4b3015bfad729367",
+    "width": 40,
+    "height": 40,
+    "alpha": false
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@1x.png",
+    "sha256": "93e7eec82f7ef19981a812b0bdb2c7022d2c61e5961b443e37531dbbb8c867f7",
+    "width": 76,
+    "height": 76,
+    "alpha": false
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-76x76@2x.png",
+    "sha256": "65b804ce0c7e0a50d0526f9e74b3ecf71dd6b81a1e95cf5cd08b36279dfe0cef",
+    "width": 152,
+    "height": 152,
+    "alpha": false
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-83.5x83.5@2x.png",
+    "sha256": "31630564a3416ff89da085c887c2050234857a52773eeb74912070ace9310c87",
+    "width": 167,
+    "height": 167,
+    "alpha": false
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png",
+    "sha256": "89e5d7c34d1e39cb5360fcc1bc1657a8dd1b4445dcfa8627c16684c5455b43c8",
+    "width": 1024,
+    "height": 1024,
+    "alpha": false
+  },
+  {
+    "file": "apps/desktop/build/icon.png",
+    "sha256": "c579aaf54d42e811f0151d8e4885263b599ed9bc1f12fe5509332042e55547ed",
+    "width": 512,
+    "height": 512,
+    "alpha": true
+  },
+  {
+    "file": "apps/web/public/favicon-32.png",
+    "sha256": "9dc84de36ed5f7b103ae5bfa4aa42cbbf3a21e0460bde6e18c2e3f1cc3140538",
+    "width": 32,
+    "height": 32,
+    "alpha": false
+  },
+  {
+    "file": "apps/web/public/apple-touch-icon.png",
+    "sha256": "8ceb8c6d880d23ae6bad0215389af273812a9a7c2fa53f548c87a86852ba128e",
+    "width": 180,
+    "height": 180,
+    "alpha": false
+  },
+  {
+    "file": "apps/desktop/build/icon.iconset/icon_16x16.png",
+    "sha256": "6d48c9d3284f89f07b753f52c580bf173a58ecffa34394acf66b2b3dc2e671a1",
+    "width": 16,
+    "height": 16,
+    "alpha": true,
+    "rgba_sha256": "200bb3af11e4827f7a4217e22f34910d8b4cdfd351ef74a12e04b041ccb8f7db"
+  },
+  {
+    "file": "apps/desktop/build/icon.iconset/icon_16x16@2x.png",
+    "sha256": "a44488230b6744976fbd1f6e498ab3bc76dbc3759137829bcf746f7bd4e32b92",
+    "width": 32,
+    "height": 32,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/icon.iconset/icon_32x32.png",
+    "sha256": "7ed0bb48c1eba0e6c5bd620a80b24615c91c26e79531b95932f9fcd7aef23b12",
+    "width": 32,
+    "height": 32,
+    "alpha": true,
+    "rgba_sha256": "65b61b39add9103a03e0550f5f75950f4c7c967e653217ebdb407ad29d819f12"
+  },
+  {
+    "file": "apps/desktop/build/icon.iconset/icon_32x32@2x.png",
+    "sha256": "9db923581c68362a34833842e87eb0a9e36cd043d039a1d4cc7c1830fbd2b3d1",
+    "width": 64,
+    "height": 64,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/icon.iconset/icon_128x128.png",
+    "sha256": "71b43c46996a22fb0b8e1cc7ffc03d327c6dbd522043932e27823e010609e3e4",
+    "width": 128,
+    "height": 128,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/icon.iconset/icon_128x128@2x.png",
+    "sha256": "f3868b6eb9d72936ff3af2b56323df3f23c957ece3f1c1347cbff0b0ae3e3904",
+    "width": 256,
+    "height": 256,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/icon.iconset/icon_256x256.png",
+    "sha256": "99b644978d709d5bef2821105013417db7d01c17a98e7245292f5380fa190823",
+    "width": 256,
+    "height": 256,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/icon.iconset/icon_256x256@2x.png",
+    "sha256": "8cbca6904ced5d22d0ecfa8ba15bcb091f212a310899e8328c836be19a260d8a",
+    "width": 512,
+    "height": 512,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/icon.iconset/icon_512x512.png",
+    "sha256": "c579aaf54d42e811f0151d8e4885263b599ed9bc1f12fe5509332042e55547ed",
+    "width": 512,
+    "height": 512,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/icon.iconset/icon_512x512@2x.png",
+    "sha256": "196d45b71b4670bd0ddba0c414d562207cf4118e248cd85f1d94fd8202116613",
+    "width": 1024,
+    "height": 1024,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/icon.icns",
+    "sha256": "d75169dc37ef32cbe13f5669c226c8b4d404af2c3d80f56ed58a583dab9f0df0",
+    "sizes": [
+      16,
+      32,
+      64,
+      128,
+      256,
+      512,
+      1024
+    ]
+  },
+  {
+    "file": "apps/desktop/build/icon.ico",
+    "sha256": "576f256b361a384ce74cb513ef2abc9ba6075477170e7100c1e0a9ae958b65a8",
+    "sizes": [
+      16,
+      24,
+      32,
+      48,
+      64,
+      128,
+      256
+    ]
+  },
+  {
+    "file": "apps/web/public/favicon.svg",
+    "sha256": "28ac1dd9b1ecbd968565248754b18a2234946fbcb9f3cf9b52c6c456404d645b"
+  },
+  {
+    "file": "apps/desktop/build/trayTemplate.png",
+    "sha256": "dcbc2bd358dba023f31592e7d90490944a47956bf6a40a4baaebc27ec0964868",
+    "width": 32,
+    "height": 16,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/tray.png",
+    "sha256": "6f976addd82794d4f4adb7cd4c327de49c6fb94aa6baa4aa56109d070f61e9bc",
+    "width": 16,
+    "height": 16,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/trayTemplate@2x.png",
+    "sha256": "0597f0ca8987ce1d654091ec411893e7bfc976e4d0703a62e59c5e7b9385ed7c",
+    "width": 64,
+    "height": 32,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/tray@2x.png",
+    "sha256": "f81c7e4842545d30a07b8b1f47228f5d1279f8c08c68e61592a9ead3936d1c48",
+    "width": 32,
+    "height": 32,
+    "alpha": true
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage.png",
+    "sha256": "dae799ba8a7b463697ffeb3fcc9fe619aa7a1c1a9f0e574b7f4b9fd6e0a32e22",
+    "width": 240,
+    "height": 115,
+    "alpha": true
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@2x.png",
+    "sha256": "d5228e9dde360d42a1e6612af8c93e37e6bf85d07143684fa14a57c6de7a4ca1",
+    "width": 480,
+    "height": 230,
+    "alpha": true
+  },
+  {
+    "file": "apps/flutter/ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@3x.png",
+    "sha256": "dc2af6e42237a2a07e7c6b16a482e0098b9f8f7d4381fc4c1e8a8f3fda193661",
+    "width": 720,
+    "height": 345,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/icon-macos-1024.png",
+    "sha256": "3d756e02169239689bcac763e6a5025cc3e12ad4d6cd2aca985c18f884f3e78a",
+    "width": 1024,
+    "height": 1024,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/icon-windows-128.png",
+    "sha256": "41ddff2350118bc8f8847e922d8fd973f80492504a7f8f4af38ecc85ae8db266",
+    "width": 128,
+    "height": 128,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/icon-windows-16.png",
+    "sha256": "3ca6a1a3e5916b0d902dda27f0a45e3574c393213d4ae6a840ba7d68dfa9f4b5",
+    "width": 16,
+    "height": 16,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/icon-windows-24.png",
+    "sha256": "c259ec868deebbe547ba1be22105b20fbf5fd593ac3200a3c95dc3020d4fd888",
+    "width": 24,
+    "height": 24,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/icon-windows-256.png",
+    "sha256": "417b95909f0ef98c564104a6ebc209c6547f6f9354959e4640f34fe0b007efb5",
+    "width": 256,
+    "height": 256,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/icon-windows-32.png",
+    "sha256": "ecf0660e8ade7e99d506d9c82d83253cd820ab2dfb4e60e83f02e3de46186b4c",
+    "width": 32,
+    "height": 32,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/icon-windows-48.png",
+    "sha256": "cb1a8cb06894bba0e53e909a5ff5b8c8ec1af43ef6e7167f3c22740b1e48992e",
+    "width": 48,
+    "height": 48,
+    "alpha": true
+  },
+  {
+    "file": "apps/desktop/build/icon-windows-64.png",
+    "sha256": "a09fff5c9b563a6b880179012028a865f1f1d33106c58ea36d2970fe85697430",
+    "width": 64,
+    "height": 64,
+    "alpha": true
+  }
+]
