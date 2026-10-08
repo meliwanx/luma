@@ -106,7 +106,7 @@ All configuration is done through environment variables in `.env`. The full anno
 | `AUTH_BOOTSTRAP_TOKEN` | Optional. Lets you create the first admin through the API instead of the CLI |
 | `LUMA_BIND_HOST`, `LUMA_PORT` | Address and port the service is published on (default `127.0.0.1:8000`) |
 | `AGENT_RUNTIME_ENABLED`, `E2B_DOMAIN`, `E2B_API_KEY`, `AGENT_RUNTIME_*_TOOL` | Tencent Cloud Agent Runtime sandbox (optional) |
-| `FILE_STORAGE` | `local` (default, stored in a Docker volume), `cos` or `fileservice` |
+| `FILE_STORAGE` | `local` (default, stored in a Docker volume) or `cos`. `fileservice` is an optional plugin; see [docs/extending.md](docs/extending.md) |
 | `MCP_BLOCKED_HOSTS`, `BROWSER_BLOCKED_HOSTS` | Put your server's own public address here so tools cannot call back into it |
 
 ### Cloud sandbox
@@ -120,10 +120,14 @@ Code execution and browsing stay disabled until you configure a sandbox. To use 
 ```
 AGENT_RUNTIME_ENABLED=true
 AGENT_RUNTIME_API_MODE=e2b
-E2B_DOMAIN=ap-hongkong.tencentags.com   # your region's endpoint
+E2B_DOMAIN=your-region.sandbox.example   # data-plane domain from your sandbox provider
 E2B_API_KEY=...
 AGENT_RUNTIME_AIO_TOOL=...              # or AGENT_RUNTIME_CODE_TOOL / AGENT_RUNTIME_BROWSER_TOOL
 ```
+
+Region, tool names and `SANDBOX_PREVIEW_HOST_SUFFIX` have no built-in default.
+Leave them empty while the sandbox is disabled. When it is enabled, a missing
+value is reported by name.
 
 Choose a region whose network can reach the sites your users need. Commands from users or the model never run on the Luma host itself. Without a sandbox, the code and browser tools are simply unavailable.
 

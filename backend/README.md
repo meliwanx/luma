@@ -128,7 +128,10 @@ for your chosen provider; `your-model-name` is a placeholder. Provider keys are
 only read on the server. `LUMA_PROVIDER=local` explicitly selects deterministic
 local behavior for development.
 
-File storage supports `FILE_STORAGE=local`, `cos`, and `fileservice`. Local
+File storage supports the built-in backends `FILE_STORAGE=local` and `cos`.
+The `fileservice` backend ships as the example plugin
+`plugins_examples.fileservice` and is not enabled by default. See
+`docs/extending.md`. Local
 content lives under `ASSISTANT_FILE_ROOT`; remote backends store logical keys
 and keep their credentials and URLs on the server. See `.env.example` for the
 complete supported configuration.

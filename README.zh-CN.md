@@ -103,7 +103,7 @@ docker compose exec luma python -m app.cli create-admin --username admin
 | `AUTH_BOOTSTRAP_TOKEN` | 可选：通过 API 而不是命令行创建首个管理员 |
 | `LUMA_BIND_HOST`、`LUMA_PORT` | 对外监听的地址和端口（默认 `127.0.0.1:8000`） |
 | `AGENT_RUNTIME_ENABLED`、`E2B_DOMAIN`、`E2B_API_KEY`、`AGENT_RUNTIME_*_TOOL` | 腾讯云 Agent Runtime 沙箱（可选） |
-| `FILE_STORAGE` | `local`（默认，存在 Docker 卷里）、`cos` 或 `fileservice` |
+| `FILE_STORAGE` | `local`（默认，存在 Docker 卷里）或 `cos`。`fileservice` 是可选插件，见 [docs/extending.md](docs/extending.md) |
 | `MCP_BLOCKED_HOSTS`、`BROWSER_BLOCKED_HOSTS` | 填你服务器自己的公网地址，防止工具反过来访问服务器本身 |
 
 ### 云端沙箱
@@ -117,10 +117,12 @@ docker compose exec luma python -m app.cli create-admin --username admin
 ```
 AGENT_RUNTIME_ENABLED=true
 AGENT_RUNTIME_API_MODE=e2b
-E2B_DOMAIN=ap-hongkong.tencentags.com   # 你所在地域的接入域名
+E2B_DOMAIN=your-region.sandbox.example   # 沙箱服务商给出的数据面域名
 E2B_API_KEY=...
 AGENT_RUNTIME_AIO_TOOL=...              # 或 AGENT_RUNTIME_CODE_TOOL / AGENT_RUNTIME_BROWSER_TOOL
 ```
+
+地域、工具名和 `SANDBOX_PREVIEW_HOST_SUFFIX` 没有内置默认值。沙箱关闭时保持为空；启用后如果缺了某一项，报错会写出变量名。
 
 地域请选网络能访问到用户所需网站的那个。用户或模型给出的命令绝不会在 Luma 主机上执行；不配置沙箱时，相关工具直接不可用。
 

@@ -26,8 +26,6 @@ MAX_AUDIO_BYTES = 10 * 1024 * 1024
 MAX_DURATION_SECONDS = 120
 TOO_LONG_DETAIL = "录音太长，请控制在 2 分钟内"
 NO_SPEECH_DETAIL = "没听清，请靠近麦克风再说一次"
-DEFAULT_ASR_BASE_URL = "wss://dashscope.aliyuncs.com/api-ws/v1/inference"
-DEFAULT_ASR_MODEL = "fun-asr-realtime"
 
 SUPPORTED_AUDIO_FORMATS = {"wav", "mp3", "opus", "aac", "amr", "pcm"}
 EXTENSION_FORMATS = {"m4a": "aac", "webm": "opus", "ogg": "opus"}
@@ -219,8 +217,10 @@ def _transcribe_blocking(audio_bytes: bytes, filename: str, content_type: str) -
             timeout_seconds = 45
     except ValueError:
         timeout_seconds = 45
-    base_url = os.getenv("BAILIAN_ASR_BASE_URL", "").strip() or DEFAULT_ASR_BASE_URL
-    model = os.getenv("BAILIAN_ASR_MODEL", "").strip() or DEFAULT_ASR_MODEL
+    base_url = os.getenv("BAILIAN_ASR_BASE_URL", "").strip()
+    model = os.getenv("BAILIAN_ASR_MODEL", "").strip()
+    if not base_url or not model:
+        raise VoiceInputError("语音识别未配置：请设置 BAILIAN_ASR_BASE_URL 和 BAILIAN_ASR_MODEL", 503)
     vocabulary_id = os.getenv("BAILIAN_ASR_VOCABULARY_ID", "").strip()
     workspace = os.getenv("BAILIAN_ASR_WORKSPACE", "").strip()
     audio_format = infer_audio_format(filename, content_type)

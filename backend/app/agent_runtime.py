@@ -170,12 +170,12 @@ def config() -> AgentRuntimeConfig:
         secret_key=secret_key,
         e2b_domain=e2b_domain,
         api_version=os.getenv("AGENT_RUNTIME_API_VERSION", "2025-09-20").strip() or "2025-09-20",
-        region=os.getenv("AGENT_RUNTIME_REGION", "ap-shanghai").strip() or "ap-shanghai",
+        region=os.getenv("AGENT_RUNTIME_REGION", "").strip(),
         create_path=os.getenv("AGENT_RUNTIME_CREATE_PATH", "/v1/runtimes").strip() or "/v1/runtimes",
         get_path=os.getenv("AGENT_RUNTIME_GET_PATH", "/v1/runtimes/{runtime_id}").strip() or "/v1/runtimes/{runtime_id}",
         release_path=os.getenv("AGENT_RUNTIME_RELEASE_PATH", "/v1/runtimes/{runtime_id}").strip() or "/v1/runtimes/{runtime_id}",
-        code_tool=os.getenv("AGENT_RUNTIME_CODE_TOOL", "luma-code").strip() or "luma-code",
-        browser_tool=os.getenv("AGENT_RUNTIME_BROWSER_TOOL", "luma-browser").strip() or "luma-browser",
+        code_tool=os.getenv("AGENT_RUNTIME_CODE_TOOL", "").strip(),
+        browser_tool=os.getenv("AGENT_RUNTIME_BROWSER_TOOL", "").strip(),
         code_tool_id=os.getenv("AGENT_RUNTIME_CODE_TOOL_ID", "").strip(),
         browser_tool_id=os.getenv("AGENT_RUNTIME_BROWSER_TOOL_ID", "").strip(),
         aio_tool=os.getenv("AGENT_RUNTIME_AIO_TOOL", "").strip(),
@@ -386,6 +386,47 @@ def _request(method: str, path: str, *, payload: Optional[dict[str, Any]] = None
     return decoded if isinstance(decoded, dict) else {}
 
 
+def sandbox_host_suffix() -> str:
+    """Host suffix for sandbox preview and browser data-plane URLs.
+
+    ``SANDBOX_PREVIEW_HOST_SUFFIX`` wins. Otherwise the suffix is derived from
+    ``E2B_DOMAIN``. An empty result means the deployment has not chosen a
+    data-plane host, and callers must refuse the URL.
+    """
+
+    raw = os.getenv("SANDBOX_PREVIEW_HOST_SUFFIX", "").strip().lower().rstrip(".")
+    if raw:
+        return raw if raw.startswith(".") else "." + raw
+    domain = os.getenv("E2B_DOMAIN", "").strip().lower().rstrip(".")
+    if domain and "/" not in domain and "\\" not in domain and "@" not in domain:
+        return "." + domain
+    return ""
+
+
+def _required_tool_name(settings: AgentRuntimeConfig, capability: str) -> str:
+    """Return the provisioned tool name, or explain which variable is empty."""
+
+    aio = str(getattr(settings, "aio_tool", "") or "").strip()
+    if aio:
+        return aio
+    if capability == "code":
+        name = str(getattr(settings, "code_tool", "") or "").strip()
+        variable = "AGENT_RUNTIME_CODE_TOOL"
+    else:
+        name = str(getattr(settings, "browser_tool", "") or "").strip()
+        variable = "AGENT_RUNTIME_BROWSER_TOOL"
+    if not name:
+        raise AgentRuntimeUnavailable(variable + " 未配置")
+    return name
+
+
+def _require_region(settings: AgentRuntimeConfig) -> str:
+    region = str(getattr(settings, "region", "") or "").strip()
+    if not region:
+        raise AgentRuntimeUnavailable("AGENT_RUNTIME_REGION 未配置")
+    return region
+
+
 def _cloud_client(settings: AgentRuntimeConfig) -> Any:
     """Create the official Tencent Cloud AGS client lazily.
 
@@ -393,6 +434,7 @@ def _cloud_client(settings: AgentRuntimeConfig) -> Any:
     not require network access or the Tencent dependency.
     """
 
+    _require_region(settings)
     try:
         from tencentcloud.ags.v20250920 import ags_client, models  # type: ignore
         from tencentcloud.common import credential  # type: ignore
@@ -453,15 +495,11 @@ def _e2b_start(settings: AgentRuntimeConfig, capability: str) -> dict[str, Any]:
     and pause it first.
     """
 
+    template = _required_tool_name(settings, capability)
     try:
         from e2b import Sandbox  # type: ignore
     except ImportError as exc:
         raise AgentRuntimeUnavailable("e2b is not installed") from exc
-    template = getattr(settings, "aio_tool", "") or (
-        getattr(settings, "code_tool", "luma-code")
-        if capability == "code"
-        else getattr(settings, "browser_tool", "luma-browser")
-    )
     idle_ttl = int(getattr(settings, "idle_ttl_seconds", 300))
     kwargs = {
         "template": template,
@@ -893,12 +931,12 @@ def _cloud_start(settings: AgentRuntimeConfig, capabilities: tuple[str, ...], us
     request = models.StartSandboxInstanceRequest()
     # Prefer immutable ToolId once provisioned; ToolName keeps the adapter
     # usable with the two existing named tools during initial setup.
-    selected = capabilities[0]
+    selected = capabilities[0] if capabilities else "code"
     tool_id = "" if getattr(settings, "aio_tool", "") else (settings.code_tool_id if selected == "code" else settings.browser_tool_id)
     if tool_id:
         request.ToolId = tool_id
     else:
-        request.ToolName = getattr(settings, "aio_tool", "") or (settings.code_tool if selected == "code" else settings.browser_tool)
+        request.ToolName = _required_tool_name(settings, selected)
     request.Timeout = f"{settings.idle_ttl_seconds}s"
     request.ClientToken = "luma-" + _hash_user(user_id) + "-" + _capability_key(capabilities)
     request.AuthMode = "TOKEN"
@@ -1010,6 +1048,33 @@ def _from_response(response: dict[str, Any], *, user_id: str, capabilities: tupl
     )
 
 
+def _missing_runtime_settings(settings: AgentRuntimeConfig) -> list[str]:
+    """Names of runtime variables that are required once the adapter is enabled."""
+
+    if not settings.enabled:
+        return []
+    missing = []
+    if settings.api_mode == "cloud-api" and not str(settings.region or "").strip():
+        missing.append("AGENT_RUNTIME_REGION")
+    aio = str(getattr(settings, "aio_tool", "") or "").strip()
+    if settings.api_mode == "e2b" and not aio and not str(settings.code_tool or "").strip():
+        missing.append("AGENT_RUNTIME_CODE_TOOL")
+    if settings.api_mode == "e2b" and not aio and not str(settings.browser_tool or "").strip():
+        missing.append("AGENT_RUNTIME_BROWSER_TOOL")
+    if settings.api_mode == "e2b" and not sandbox_host_suffix():
+        missing.append("SANDBOX_PREVIEW_HOST_SUFFIX")
+    return missing
+
+
+def _status_reason(settings: AgentRuntimeConfig) -> str:
+    if not settings.enabled:
+        return "not_configured"
+    missing = _missing_runtime_settings(settings)
+    if missing:
+        return "missing:" + ",".join(missing)
+    return "ready"
+
+
 def status() -> dict[str, Any]:
     """Safe diagnostics for health/status pages; never reports the API key."""
 
@@ -1034,7 +1099,8 @@ def status() -> dict[str, Any]:
         "max_cpu": settings.max_cpu,
         "max_memory_gib": settings.max_memory_gib,
         "sandbox_max_paused": getattr(settings, "sandbox_max_paused", 18),
-        "reason": "ready" if settings.enabled else "not_configured",
+        "reason": _status_reason(settings),
+        "missing": _missing_runtime_settings(settings),
     }
 
 
@@ -1343,8 +1409,11 @@ def connect_user_browser(user_id: str) -> tuple[Any, str, str]:
         host = str(sandbox.get_host(9000))
         parsed = urlsplit("https://" + host)
         hostname = (parsed.hostname or "").lower()
+        suffix = sandbox_host_suffix()
+        if not suffix:
+            raise AgentRuntimeUnavailable("SANDBOX_PREVIEW_HOST_SUFFIX 或 E2B_DOMAIN 未配置")
         if (
-            not hostname.endswith(".tencentags.com")
+            not hostname.endswith(suffix)
             or re.fullmatch(r"[A-Za-z0-9.-]+(?::443)?", host) is None
             or parsed.username is not None or parsed.password is not None
             or parsed.port not in (None, 443)
@@ -1354,6 +1423,8 @@ def connect_user_browser(user_id: str) -> tuple[Any, str, str]:
         token = str(getattr(sandbox, "_envd_access_token", "") or "")
         if not token:
             raise ValueError("missing browser token")
+    except AgentRuntimeUnavailable:
+        raise
     except Exception as exc:
         raise AgentRuntimeUnavailable("Tencent Agent Runtime browser endpoint unavailable") from exc
     encoded_token = quote(token, safe="")
