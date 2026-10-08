@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import json
 import re
 import sys
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -16,6 +17,30 @@ from psycopg2 import IntegrityError
 
 from app import auth
 from app.db import get_connection
+
+
+def _profile_job_number(value: Any) -> str:
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return ""
+    if isinstance(value, dict):
+        return str(value.get("job_number") or "").strip()
+    return ""
+
+
+def _can_enroll(row: Any) -> bool:
+    """Only a credential-less legacy_ row with no SSO identity can be enrolled."""
+
+    if row is None or row["password_hash"]:
+        return False
+    provider = str(row.get("auth_provider") or "").strip().lower()
+    if provider:
+        return False
+    if str(row.get("job_number") or "").strip() or _profile_job_number(row.get("profile")):
+        return False
+    return str(row.get("user_id") or "").startswith("legacy_")
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -36,11 +61,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         encoded = auth.hash_password(password)
         with get_connection() as conn:
             row = conn.execute(
-                "SELECT password_hash, auth_provider FROM users WHERE user_id = ? FOR UPDATE",
+                "SELECT user_id, password_hash, auth_provider, job_number, profile "
+                "FROM users WHERE user_id = ? FOR UPDATE",
                 (args.user_id,),
             ).fetchone()
-            provider = str((row or {}).get("auth_provider") or "")
-            if row is None or row["password_hash"] or provider == "sso":
+            if not _can_enroll(row):
                 print("Only an existing account without credentials can be enrolled", file=sys.stderr)
                 return 1
             conn.execute(

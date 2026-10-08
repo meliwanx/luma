@@ -30,7 +30,6 @@ from ..db import (
     cache_pop_strict,
     cache_set,
     get_connection,
-    ping_redis,
 )
 
 _TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9_-]{16,256}$")
@@ -42,7 +41,8 @@ _PASSWORD_INVALID_DETAIL = "账号或密码错误"
 _PASSWORD_UNAVAILABLE_DETAIL = "登录服务暂时不可用"
 _PASSWORD_LOCKED_DETAIL = "尝试次数过多，请 15 分钟后再试"
 _CACHE_UNAVAILABLE_DETAIL = "登录服务暂时不可用，请稍后重试"
-_DEFAULT_SYSTEM_CODE = "assistant"
+_UNCLAIMED_DETAIL = "该账号尚未绑定登录方式"
+_FOREIGN_DETAIL = "该用户已绑定其他登录方式"
 
 # Optional profile keys. All are omitted when the identity service does not send them.
 _PROFILE_KEYS = (
@@ -135,7 +135,7 @@ def sso_config() -> dict[str, Any]:
         timeout = max(1.0, min(float(timeout_value), 30.0))
     except ValueError:
         timeout = 8.0
-    system_code = _env("SSO_SYSTEM_CODE") or _DEFAULT_SYSTEM_CODE
+    system_code = _env("SSO_SYSTEM_CODE")
     return {
         "base_url": base_url,
         "login_url": login_url,
@@ -157,27 +157,13 @@ def missing_sso_settings() -> list[str]:
         missing.append("SSO_API_SECRET")
     if not config["session_secret"]:
         missing.append("AUTH_SESSION_SECRET")
+    if not str(config.get("system_code") or "").strip():
+        missing.append("SSO_SYSTEM_CODE")
     return missing
 
 
 def _configured(config: dict[str, Any]) -> bool:
     return not missing_sso_settings() and bool(config["login_url"] and config["verify_url"])
-
-
-def _url_origin(value: str) -> Optional[str]:
-    parsed = urlsplit(value or "")
-    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-        return None
-    try:
-        port = parsed.port
-    except ValueError:
-        return None
-    host = parsed.hostname
-    if ":" in host and not host.startswith("["):
-        host = f"[{host}]"
-    if port and not ((parsed.scheme == "https" and port == 443) or (parsed.scheme == "http" and port == 80)):
-        host = f"{host}:{port}"
-    return f"{parsed.scheme}://{host}"
 
 
 def sso_public_status() -> dict[str, Any]:
@@ -190,8 +176,6 @@ def sso_public_status() -> dict[str, Any]:
         "configured": configured,
         "password_login": configured and _bool_env("AUTH_PASSWORD_LOGIN_ENABLED", True),
         "provider": "sso",
-        "base_origin": _url_origin(config["base_url"]),
-        "redis_reachable": ping_redis(),
     }
 
 
@@ -392,13 +376,17 @@ def _column_values(user: dict[str, Any]) -> dict[str, str]:
     return values
 
 
-def _password_claimed(row: Any) -> bool:
+def _claim_refusal(row: Any) -> Optional[str]:
+    """Refuse to adopt a row that is not already an SSO identity."""
+
     provider = str(row.get("auth_provider") or "").strip().lower()
     if provider == "sso":
-        return False
-    if provider == "password":
-        return True
-    return bool(row.get("password_hash"))
+        return None
+    if provider == "password" or str(row.get("role") or "") == "admin":
+        return _FOREIGN_DETAIL
+    if not provider:
+        return _UNCLAIMED_DETAIL
+    return _FOREIGN_DETAIL
 
 
 def _optional_email(value: Any) -> Optional[str]:
@@ -445,8 +433,10 @@ def upsert_user_profile(user: dict[str, Any]) -> dict[str, Any]:
     with get_connection() as conn:
         conn.execute("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE")
         row = conn.execute("SELECT * FROM users WHERE user_id = ? FOR UPDATE", (user_id,)).fetchone()
-        if row and _password_claimed(row):
-            raise HTTPException(status_code=409, detail="该用户已绑定其他登录方式")
+        if row:
+            refusal = _claim_refusal(row)
+            if refusal:
+                raise HTTPException(status_code=409, detail=refusal)
         if row and row.get("status") == "disabled":
             raise HTTPException(status_code=403, detail="账号已停用")
         if row:
@@ -645,9 +635,24 @@ def sso_start(next_path: str = Query(default="/app", alias="next")) -> dict[str,
     return {"url": url, "state": state, "provider": "sso"}
 
 
-@router.post("/api/v1/auth/sso/exchange")
-def sso_exchange(request: Request, payload: SsoExchangePayload) -> JSONResponse:
+async def _exchange_payload(request: Request) -> SsoExchangePayload:
     _require_sso()
+    if request.headers.get("content-type", "").split(";", 1)[0].strip().lower() != "application/json":
+        raise HTTPException(status_code=415, detail="请使用 JSON 提交登录信息")
+    try:
+        return SsoExchangePayload.model_validate(await request.json())
+    except (ValueError, ValidationError):
+        raise HTTPException(status_code=422, detail="登录信息格式无效") from None
+
+
+@router.post(
+    "/api/v1/auth/sso/exchange",
+    openapi_extra={"requestBody": {
+        "required": True,
+        "content": {"application/json": {"schema": SsoExchangePayload.model_json_schema()}},
+    }},
+)
+def sso_exchange(request: Request, payload: SsoExchangePayload = Depends(_exchange_payload)) -> JSONResponse:
     response = JSONResponse(content={})
     data = exchange_ticket(payload.ticket, payload.state, response, request=request)
     return _set_json_body(response, data)
@@ -657,15 +662,12 @@ class SsoProvider:
     name = "sso"
 
     def public_config(self) -> dict[str, Any]:
-        config = sso_config()
-        origin = _url_origin(config["base_url"])
         account_label = _label("AUTH_ACCOUNT_LABEL", "账号")
         sso_label = _label("AUTH_SSO_LABEL", "单点登录")
         entries = [{
             "name": self.name,
             "label": sso_label,
             "kind": "redirect",
-            "origin": origin,
         }]
         if _bool_env("AUTH_PASSWORD_LOGIN_ENABLED", True):
             entries.append({

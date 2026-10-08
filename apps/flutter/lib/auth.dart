@@ -122,7 +122,6 @@ class _AuthGateState extends State<AuthGate> {
   bool _showSsoCredentials = false;
   String _ssoLabel = '单点登录';
   String _accountLabel = '账号';
-  String? _ssoOrigin;
 
   @override
   void initState() {
@@ -186,14 +185,10 @@ class _AuthGateState extends State<AuthGate> {
     var local = false;
     var redirect = false;
     var credentials = false;
-    String? origin;
     for (final item in providers) {
       if (item is! Map) continue;
       if (item['kind'] == 'password') local = true;
-      if (item['kind'] == 'redirect') {
-        redirect = true;
-        origin = AssistantApi.originOf(item['origin']?.toString());
-      }
+      if (item['kind'] == 'redirect') redirect = true;
       if (item['kind'] == 'credentials') credentials = true;
     }
     final ssoLabel = payload['sso_label'];
@@ -208,7 +203,6 @@ class _AuthGateState extends State<AuthGate> {
       _accountLabel = accountLabel is String && accountLabel.trim().isNotEmpty
           ? accountLabel.trim()
           : '账号';
-      _ssoOrigin = origin;
       _registrationOpen = local && payload['registration_open'] == true;
       _requiresInvite = local && payload['requires_invite'] == true;
     });
@@ -227,11 +221,8 @@ class _AuthGateState extends State<AuthGate> {
       final start = await _repository.ssoStart();
       final url = start['url'];
       final state = start['state'];
-      if (url is! String || state is! String || state.isEmpty) {
+      if (url is! String || state is! String || state.isEmpty || !ssoStartUrlAllowed(url)) {
         throw const AssistantApiException('单点登录地址无效');
-      }
-      if (_ssoOrigin != null && AssistantApi.originOf(url) != _ssoOrigin) {
-        throw const AssistantApiException('单点登录地址与配置不匹配');
       }
       if (!mounted) return;
       final callback = await Navigator.of(context).push<SsoCallback>(
@@ -798,6 +789,18 @@ class SsoCallback {
 
   final String ticket;
   final String? state;
+}
+
+/// Accepts the login URL returned by `/auth/sso/start`.
+/// HTTPS is required except for loopback HTTP used in local development.
+bool ssoStartUrlAllowed(String value) {
+  final parsed = Uri.tryParse(value.trim());
+  if (parsed == null || !parsed.hasScheme || parsed.host.isEmpty) return false;
+  final scheme = parsed.scheme.toLowerCase();
+  if (scheme == 'https') return true;
+  if (scheme != 'http') return false;
+  final host = parsed.host.toLowerCase();
+  return host == 'localhost' || host == '127.0.0.1' || host == '::1';
 }
 
 bool isAppSsoCallback(Uri uri, String appBase) {

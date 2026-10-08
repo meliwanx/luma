@@ -300,6 +300,10 @@ def password_login(login: str, password: str, response: Response, request: Reque
             raise HTTPException(status_code=429, detail="尝试次数过多，请稍后再试", headers={"Retry-After": "60"})
         if limited == 1:
             raise _password_locked()
+        # An unbound row is not adopted by password login. Enrollment is the
+        # only way to attach local credentials to a legacy account.
+        if row and not str(row.get("auth_provider") or "").strip():
+            raise HTTPException(status_code=409, detail="该账号尚未绑定登录方式")
         # An SSO identity can share the users table but must not accept a local password,
         # even if a hash was written onto the row by mistake.
         external = bool(row and (row.get("auth_provider") or "") == "sso")

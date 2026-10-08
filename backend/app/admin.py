@@ -75,8 +75,48 @@ def _identity(request: Request) -> dict[str, Any]:
     raise HTTPException(status_code=401, detail="未登录")
 
 
+def _profile_job_numbers(profile: Any) -> set[str]:
+    document = _json(profile)
+    found: set[str] = set()
+    if not isinstance(document, dict):
+        return found
+    containers = [document]
+    for key in ("ext", "extension", "extra", "extensions"):
+        nested = document.get(key)
+        if isinstance(nested, dict):
+            containers.append(nested)
+    for container in containers:
+        value = container.get("job_number")
+        if isinstance(value, (str, int)) and str(value).strip():
+            found.add(str(value).strip())
+    return found
+
+
+def _account_job_numbers(user_id: str) -> set[str]:
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT job_number, profile FROM users WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+    if not row:
+        return set()
+    found = _profile_job_numbers(row.get("profile"))
+    column = str(row.get("job_number") or "").strip()
+    if column:
+        found.add(column)
+    return found
+
+
 def _is_admin(user: dict[str, Any]) -> bool:
-    return user.get("role") == "admin" or str(user.get("user_id", "")) in _admin_ids()
+    if user.get("role") == "admin":
+        return True
+    user_id = str(user.get("user_id") or "")
+    allowed = _admin_ids()
+    if user_id and user_id in allowed:
+        return True
+    if not user_id or not allowed:
+        return False
+    return bool(_account_job_numbers(user_id) & allowed)
 
 
 def require_admin(request: Request) -> dict[str, Any]:
