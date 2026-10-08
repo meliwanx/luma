@@ -29,6 +29,34 @@ void main() {
     }
   });
 
+  test('client config replaces live host suffixes and failure restores the default', () async {
+    final custom = BrowserLiveHosts(
+      load: () async => {
+        'browser_live_host_suffixes': ['example.test', '.example.test'],
+      },
+    );
+    await custom.refresh();
+    expect(custom.suffixes, ['.example.test']);
+    expect(
+      isBrowserLiveUrl('https://view.example.test/novnc/', custom.suffixes),
+      isTrue,
+    );
+    expect(
+      isBrowserLiveUrl('https://view.tencentags.com/novnc/', custom.suffixes),
+      isFalse,
+    );
+    final failed = BrowserLiveHosts(
+      load: () async => throw Exception('offline'),
+    );
+    failed.apply(['.example.test']);
+    await failed.refresh();
+    expect(failed.suffixes, defaultBrowserLiveHostSuffixes);
+    expect(
+      isBrowserLiveUrl('https://view.tencentags.com/novnc/', failed.suffixes),
+      isTrue,
+    );
+  });
+
   test('browser captions and image types are bounded', () {
     expect(browserProgressLabel('browser.open'), '正在打开网页…');
     expect(browserProgressLabel('browser.read'), '正在读取页面…');

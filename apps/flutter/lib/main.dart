@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'auth.dart';
 import 'brand.dart';
+import 'browser_tools.dart';
 import 'home.dart';
 import 'preferences.dart';
 import 'theme.dart';
@@ -21,6 +22,7 @@ Future<void> main() async {
   await LumaPreferences.instance.load();
   runApp(const LumaApp());
   unawaited(BrandController.instance.refresh());
+  unawaited(BrowserLiveHosts.instance.refresh());
 }
 
 // Kept as a compatibility name for the generated Flutter smoke test.

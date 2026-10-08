@@ -173,8 +173,24 @@ class BrandApiTests(unittest.TestCase):
     def test_routes_are_registered_before_the_spa_fallback(self):
         paths = [getattr(route, "path", "") for route in main_app.routes]
         self.assertIn("/api/v1/brand", paths)
+        self.assertIn("/api/v1/client-config", paths)
         self.assertIn("/brand/{asset_name}", paths)
-        self.assertLess(paths.index("/brand/{asset_name}"), paths.index("/{spa_path:path}"))
+        spa = paths.index("/{spa_path:path}")
+        self.assertLess(paths.index("/brand/{asset_name}"), spa)
+        self.assertLess(paths.index("/api/v1/client-config"), spa)
+
+    def test_client_config_publishes_live_host_suffixes(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("BROWSER_LIVE_HOST_SUFFIXES", None)
+            response = self.client.get("/api/v1/client-config")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"browser_live_host_suffixes": [".tencentags.com"]})
+        with patch.dict(os.environ, {"BROWSER_LIVE_HOST_SUFFIXES": " example.test, .Example.Test, not a host, .ok.example "}):
+            response = self.client.get("/api/v1/client-config")
+        self.assertEqual(response.json(), {"browser_live_host_suffixes": [".example.test", ".ok.example"]})
+        with patch.dict(os.environ, {"BROWSER_LIVE_HOST_SUFFIXES": "http://evil.example"}):
+            response = self.client.get("/api/v1/client-config")
+        self.assertEqual(response.json(), {"browser_live_host_suffixes": [".tencentags.com"]})
 
 
 class BrandPromptTests(unittest.TestCase):

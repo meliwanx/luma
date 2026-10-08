@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from ..brand import get_brand, resolve_brand_asset
+from ..client_config import browser_live_host_suffixes
 
 router = APIRouter()
 
@@ -27,6 +28,12 @@ def read_brand() -> Dict[str, str]:
     """Return the display brand. No session is required."""
     payload = get_brand().public_dict()
     return {field: payload[field] for field in _PUBLIC_FIELDS}
+
+
+@router.get("/api/v1/client-config")
+def read_client_config() -> Dict[str, object]:
+    """Return public client settings. No session is required."""
+    return {"browser_live_host_suffixes": browser_live_host_suffixes()}
 
 
 @router.get("/brand/{asset_name}", include_in_schema=False)

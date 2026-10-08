@@ -52,22 +52,25 @@ class _BrowserLiveCardState extends State<BrowserLiveCard> {
   }
 
   @override
-  Widget build(BuildContext context) => Card(
-    margin: const EdgeInsets.only(bottom: 8),
-    child: ListTile(
-      leading: const Icon(Icons.public),
-      title: const Text('浏览器实时画面'),
-      subtitle: _expired ? const Text('实时画面已过期，请重新打开') : null,
-      trailing: TextButton(
-        onPressed: !_expired && isBrowserLiveUrl(widget.url)
-            ? () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  fullscreenDialog: true,
-                  builder: (_) => BrowserLiveView(url: widget.url),
-                ),
-              )
-            : null,
-        child: const Text('观看实时画面'),
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: BrowserLiveHosts.instance,
+    builder: (context, _) => Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: const Icon(Icons.public),
+        title: const Text('浏览器实时画面'),
+        subtitle: _expired ? const Text('实时画面已过期，请重新打开') : null,
+        trailing: TextButton(
+          onPressed: !_expired && isBrowserLiveUrl(widget.url)
+              ? () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    fullscreenDialog: true,
+                    builder: (_) => BrowserLiveView(url: widget.url),
+                  ),
+                )
+              : null,
+          child: const Text('观看实时画面'),
+        ),
       ),
     ),
   );

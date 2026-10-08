@@ -169,8 +169,28 @@ in the shared account layer.
 | `AUTH_PROVIDERS` | `password` | `password`, `sso`, or both |
 | `AUTH_SSO_LABEL` | `单点登录` | Button label on the login screen |
 | `AUTH_ACCOUNT_LABEL` | `账号` | Label for the account field |
+| `AUTH_PASSWORD_LOGIN_ENABLED` | `true` | Account-password channel on the SSO provider |
+| `SSO_BASE_URL` | empty | Identity service origin. Required when `sso` is enabled |
+| `SSO_VERIFY_URL` | `{SSO_BASE_URL}/api/sso/verify` | Ticket verification URL |
+| `SSO_FEDERATED_LOGIN_URL` | `{SSO_BASE_URL}/api/sso/federated-login` | Browser redirect URL |
+| `SSO_APP_BASE_URL` | empty | Public origin of this app, used to build the callback |
+| `SSO_CALLBACK_URL` | empty | Override the callback. Otherwise derived from `SSO_APP_BASE_URL` |
+| `SSO_SYSTEM_CODE` | `assistant` | Sent as `X-System-Code` |
+| `SSO_API_SECRET` | empty | HMAC secret. Required when `sso` is enabled. Not returned by the API |
+| `SSO_SYSTEM_SECRET` | empty | Alias of `SSO_API_SECRET` |
+| `SSO_VERIFY_TIMEOUT_SECONDS` | `8` | Verify timeout, clamped to 1–30 seconds |
+| `SSO_TIMEOUT_SECONDS` | empty | Alias used only when `SSO_VERIFY_TIMEOUT_SECONDS` is empty |
 
 `GET /api/v1/auth/providers` describes the enabled providers for the login
-screen. It does not return secrets. Enabling `sso` requires the `SSO_*`
-settings documented with that provider. Password registration continues to use
+screen. It does not return secrets. Password registration continues to use
 `AUTH_REGISTRATION`, `AUTH_INVITE_CODE` and `AUTH_BOOTSTRAP_TOKEN`.
+
+## Client config
+
+`GET /api/v1/client-config` is public. It returns `browser_live_host_suffixes`,
+the host suffixes the web and Flutter clients may open for a browser live view.
+`BROWSER_LIVE_HOST_SUFFIXES` is a comma-separated list. Leave it empty to keep
+the default `[".tencentags.com"]`, which is Tencent Cloud's public data-plane
+suffix. A failed request on the client restores that same default. The value
+is not a credential. Set it to the same suffix as `SANDBOX_PREVIEW_HOST_SUFFIX`
+when the deployment uses another data-plane host.

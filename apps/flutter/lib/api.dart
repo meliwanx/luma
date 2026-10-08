@@ -104,6 +104,21 @@ class AssistantApi {
     return Map<String, dynamic>.from(result);
   }
 
+  /// Public client settings, including the browser live-view host suffixes.
+  /// Callers keep the built-in default when this request fails.
+  Future<Map<String, dynamic>> clientConfig() async {
+    final result = await _accountRequest(
+      'GET',
+      '/api/v1/client-config',
+      '客户端配置加载失败',
+      authenticated: false,
+    );
+    if (result is! Map || result['browser_live_host_suffixes'] is! List) {
+      throw const AssistantApiException('客户端配置接口返回了无效响应');
+    }
+    return Map<String, dynamic>.from(result);
+  }
+
   Future<String> ssoPasswordLogin(String account, String password) async {
     try {
       final request = http.Request(

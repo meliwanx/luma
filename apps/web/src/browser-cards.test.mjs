@@ -5,7 +5,7 @@ import vm from 'node:vm'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { transformWithEsbuild } from 'vite'
-import { browserProgressLabel, fetchFileBlob, isBrowserLiveUrl, isImageFile, liveBrowserEvents, preserveBrowserLiveMessages } from './browser-tools.js'
+import { browserLiveHostSuffixes, browserProgressLabel, fetchFileBlob, isBrowserLiveUrl, isImageFile, liveBrowserEvents, loadBrowserLiveHostSuffixes, preserveBrowserLiveMessages, setBrowserLiveHostSuffixes, subscribeBrowserLiveHostSuffixes } from './browser-tools.js'
 
 const source = await readFile(new URL('./sandbox-cards.jsx', import.meta.url), 'utf8')
 const { code } = await transformWithEsbuild(source.replace(/^import .*\n/gm, '').replace('export function SandboxToolCard', 'function SandboxToolCard'), 'cards.jsx', {
@@ -13,7 +13,7 @@ const { code } = await transformWithEsbuild(source.replace(/^import .*\n/gm, '')
 })
 const context = {
   React, useEffect: React.useEffect, useMemo: React.useMemo, useState: React.useState,
-  isBrowserLiveUrl, isImageFile, fetchFileBlob, URL,
+  isBrowserLiveUrl, isImageFile, fetchFileBlob, browserLiveHostSuffixes, subscribeBrowserLiveHostSuffixes, URL,
 }
 vm.createContext(context)
 vm.runInContext(code, context)
@@ -99,4 +99,24 @@ test('browser permissions render in their own group', async () => {
   assert.match(browser, /提交网页/)
   assert.match(browser, /每次询问/)
   assert.doesNotMatch(html.slice(html.indexOf('<h4>Luma</h4>'), html.indexOf('<h4>浏览器</h4>')), /提交网页/)
+})
+
+test('live host suffixes come from client-config and fall back to the public default', async () => {
+  const original = browserLiveHostSuffixes()
+  try {
+    const loaded = await loadBrowserLiveHostSuffixes('http://app.example/api/v1', async (url) => {
+      assert.equal(url, 'http://app.example/api/v1/client-config')
+      return { ok: true, json: async () => ({ browser_live_host_suffixes: ['example.test', '.example.test'] }) }
+    })
+    assert.deepEqual(loaded, ['.example.test'])
+    assert.equal(isBrowserLiveUrl('https://view.example.test/novnc/'), true)
+    assert.equal(isBrowserLiveUrl('https://view.tencentags.com/novnc/'), false)
+    const failed = await loadBrowserLiveHostSuffixes('http://app.example/api/v1', async () => { throw new Error('offline') })
+    assert.deepEqual(failed, ['.tencentags.com'])
+    assert.equal(isBrowserLiveUrl('https://view.tencentags.com/novnc/'), true)
+    const rejected = await loadBrowserLiveHostSuffixes('http://app.example/api/v1', async () => ({ ok: false, status: 500, json: async () => ({}) }))
+    assert.deepEqual(rejected, ['.tencentags.com'])
+  } finally {
+    setBrowserLiveHostSuffixes(original)
+  }
 })

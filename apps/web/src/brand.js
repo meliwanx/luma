@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
+import { loadBrowserLiveHostSuffixes } from './browser-tools.js'
 
 export const DEFAULT_PRODUCT_NAME = 'Luma'
 export const DEFAULT_TAGLINE = '个人助理'
@@ -111,6 +112,7 @@ export function BrandProvider({ children, apiBase = '', fetcher }) {
     const root = String(apiBase || '').replace(/\/$/, '')
     if (!root) return undefined
     const load = fetcher || defaultFetcher
+    loadBrowserLiveHostSuffixes(root, load)
     resolveBrand(base, load, `${root}/brand`).then((next) => {
       if (!active) return
       setBrand(next)
