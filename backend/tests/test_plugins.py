@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -255,6 +255,9 @@ class DeploymentDefaultTests(unittest.TestCase):
         for relative in ("mcp.py", "services/browser.py"):
             text = (root / relative).read_text(encoding="utf-8")
             self.assertIsNone(re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", text), relative)
+        runtime_source = (root / "agent_runtime.py").read_text(encoding="utf-8")
+        self.assertNotIn("luma-code", runtime_source)
+        self.assertNotIn("luma-browser", runtime_source)
 
     def test_runtime_region_and_tool_names_default_to_empty(self):
         values = {
@@ -269,6 +272,8 @@ class DeploymentDefaultTests(unittest.TestCase):
         self.assertEqual(settings.region, "")
         self.assertEqual(settings.code_tool, "")
         self.assertEqual(settings.browser_tool, "")
+        self.assertEqual(agent_runtime.status()["reason"], "未配置")
+        self.assertFalse(agent_runtime.sandbox_tools_configured())
         with self.assertRaises(agent_runtime.AgentRuntimeUnavailable) as code_error:
             agent_runtime._required_tool_name(SimpleNamespace(aio_tool="", code_tool="", browser_tool=""), "code")
         self.assertIn("AGENT_RUNTIME_CODE_TOOL", str(code_error.exception))
@@ -284,3 +289,69 @@ class DeploymentDefaultTests(unittest.TestCase):
             with self.assertRaises(agent_runtime.AgentRuntimeUnavailable) as caught:
                 agent_runtime.connect_user_browser("user")
         self.assertIn("SANDBOX_PREVIEW_HOST_SUFFIX", str(caught.exception))
+
+    def test_unconfigured_sandbox_tools_stay_hidden_and_name_the_variable(self):
+        from app.agent import tools as agent_tools
+
+        values = {
+            "AGENT_RUNTIME_ENABLED": "true",
+            "AGENT_RUNTIME_API_MODE": "e2b",
+            "E2B_DOMAIN": "sandbox.example",
+            "E2B_API_KEY": "test-key",
+            "AGENT_RUNTIME_API_KEY": "",
+            "AGENT_RUNTIME_CODE_TOOL": "",
+            "AGENT_RUNTIME_BROWSER_TOOL": "",
+            "AGENT_RUNTIME_AIO_TOOL": "",
+            "AGENT_RUNTIME_REGION": "",
+            "SANDBOX_PREVIEW_HOST_SUFFIX": "",
+        }
+        with patch.dict(os.environ, values, clear=False):
+            self.assertFalse(agent_runtime.sandbox_tools_configured())
+            payload = agent_runtime.status()
+            self.assertIn("未配置", payload["reason"])
+            self.assertIn("AGENT_RUNTIME_CODE_TOOL", payload["missing"])
+            self.assertIn("AGENT_RUNTIME_BROWSER_TOOL", payload["missing"])
+            with patch.object(agent_tools, "mcp_catalog", return_value=([], {}, [])):
+                names = [item.name for item in agent_tools.registry_for("u", mode="interactive")[0]]
+            self.assertNotIn("sandbox.python", names)
+            self.assertNotIn("browser.open", names)
+            settings = agent_runtime.config()
+            with self.assertRaises(agent_runtime.AgentRuntimeUnavailable) as code_error:
+                agent_runtime._e2b_start(settings, "code")
+            self.assertIn("AGENT_RUNTIME_CODE_TOOL", str(code_error.exception))
+            self.assertIn("未配置", str(code_error.exception))
+            with self.assertRaises(agent_runtime.AgentRuntimeUnavailable) as browser_error:
+                agent_runtime._required_tool_name(settings, "browser")
+            self.assertIn("AGENT_RUNTIME_BROWSER_TOOL", str(browser_error.exception))
+
+    def test_configured_tool_name_registers_tools_and_is_the_template(self):
+        from app.agent import tools as agent_tools
+
+        values = {
+            "AGENT_RUNTIME_ENABLED": "true",
+            "AGENT_RUNTIME_API_MODE": "e2b",
+            "E2B_DOMAIN": "sandbox.example",
+            "E2B_API_KEY": "test-key",
+            "AGENT_RUNTIME_API_KEY": "",
+            "AGENT_RUNTIME_CODE_TOOL": "your-code-tool-name",
+            "AGENT_RUNTIME_BROWSER_TOOL": "your-browser-tool-name",
+            "AGENT_RUNTIME_AIO_TOOL": "",
+            "SANDBOX_PREVIEW_HOST_SUFFIX": ".sandbox.example",
+        }
+        box = SimpleNamespace(sandbox_id="box-1")
+        created = MagicMock(return_value=box)
+        with patch.dict(os.environ, values, clear=False), patch.object(
+            agent_runtime, "_e2b_pause_lifecycle", return_value=None
+        ), patch.dict(sys.modules, {"e2b": SimpleNamespace(Sandbox=SimpleNamespace(create=created))}):
+            self.assertTrue(agent_runtime.sandbox_tools_configured())
+            payload = agent_runtime.status()
+            self.assertEqual(payload["reason"], "ready")
+            self.assertEqual(payload["missing"], [])
+            with patch.object(agent_tools, "mcp_catalog", return_value=([], {}, [])):
+                names = [item.name for item in agent_tools.registry_for("u", mode="interactive")[0]]
+            self.assertIn("sandbox.python", names)
+            self.assertIn("browser.open", names)
+            agent_runtime._e2b_start(agent_runtime.config(), "code")
+            self.assertEqual(created.call_args.kwargs["template"], "your-code-tool-name")
+            agent_runtime._e2b_start(agent_runtime.config(), "browser")
+            self.assertEqual(created.call_args.kwargs["template"], "your-browser-tool-name")

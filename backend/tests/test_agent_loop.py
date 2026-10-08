@@ -597,13 +597,17 @@ class AgentLoopTests(unittest.TestCase):
         self.assertEqual(decision.decision, "allow")
 
     def test_sandbox_registration_follows_runtime_availability(self):
-        with patch.object(agent_tools.agent_runtime, "config", return_value=SimpleNamespace(enabled=False)), patch.object(agent_tools, "mcp_catalog", return_value=([], {}, [])):
+        hidden = SimpleNamespace(enabled=False, api_mode="e2b", aio_tool="", code_tool="", browser_tool="", code_tool_id="", browser_tool_id="")
+        with patch.object(agent_tools.agent_runtime, "config", return_value=hidden), patch.object(agent_tools, "mcp_catalog", return_value=([], {}, [])):
             names = [item.name for item in agent_tools.registry_for("u", mode="interactive")[0]]
         self.assertNotIn("sandbox.python", names)
-        with patch.object(agent_tools.agent_runtime, "config", return_value=SimpleNamespace(enabled=True)), patch.object(agent_tools, "mcp_catalog", return_value=([], {}, [])):
+        self.assertNotIn("browser.open", names)
+        visible = SimpleNamespace(enabled=True, api_mode="e2b", aio_tool="", code_tool="example-code", browser_tool="example-browser", code_tool_id="", browser_tool_id="")
+        with patch.object(agent_tools.agent_runtime, "config", return_value=visible), patch.object(agent_tools, "mcp_catalog", return_value=([], {}, [])):
             names = [item.name for item in agent_tools.registry_for("u", mode="interactive")[0]]
         self.assertIn("sandbox.python", names)
         self.assertIn("sandbox.shell", names)
+        self.assertIn("browser.open", names)
 
     def test_round_limit_streams_one_final_answer_without_tools(self):
         events = []
