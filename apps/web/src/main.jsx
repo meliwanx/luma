@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import Icon from './icons.jsx'
-import LumaLogo from './logo.jsx'
+import BrandLogo from './logo.jsx'
+import { BrandProvider, useBrand } from './brand.js'
 import { ChatWidget } from './widgets.jsx'
 import { ChatsPanel, SearchPalette } from './chat-panels.jsx'
 import { SandboxToolCard } from './sandbox-cards.jsx'
@@ -424,6 +425,8 @@ function streamAssistantId() {
 }
 
 function WorkspaceApp() {
+  const brand = useBrand()
+  const productName = brand.product_name
   const [view, setView] = useState('chat')
   const [data, setData] = useState(() => createEmptyState())
   const [offline, setOffline] = useState(false)
@@ -449,7 +452,7 @@ function WorkspaceApp() {
     notifications: localStorage.getItem('luma-notifications') !== 'off',
     enterToSend: localStorage.getItem('luma-enter-to-send') !== 'off',
     voiceRaw: localStorage.getItem('luma-voice-raw') === 'on',
-    accent: localStorage.getItem('luma-accent') || ACCENTS[0].value,
+    accent: localStorage.getItem('luma-accent') || '',
     fontSize: localStorage.getItem('luma-font-size') || 'standard',
   }))
   const [systemDark, setSystemDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false)
@@ -608,7 +611,8 @@ function WorkspaceApp() {
     localStorage.setItem('luma-notifications', settings.notifications ? 'on' : 'off')
     localStorage.setItem('luma-enter-to-send', settings.enterToSend ? 'on' : 'off')
     localStorage.setItem('luma-voice-raw', settings.voiceRaw ? 'on' : 'off')
-    localStorage.setItem('luma-accent', settings.accent)
+    if (settings.accent) localStorage.setItem('luma-accent', settings.accent)
+    else localStorage.removeItem('luma-accent')
     localStorage.setItem('luma-font-size', settings.fontSize)
   }, [settings.notifications, settings.enterToSend, settings.voiceRaw, settings.accent, settings.fontSize])
 
@@ -671,7 +675,7 @@ function WorkspaceApp() {
             notificationsRef.current = notifications.slice(0, 100)
             return { ...current, notifications: notifications.slice(0, 100) }
           })
-          notifyDesktop(payload.title || 'Luma 通知', payload.body || '')
+          notifyDesktop(payload.title || `${typeof productName === 'string' && productName ? productName : 'Luma'} 通知`, payload.body || '')
         })
         if (active) scheduleReconnect()
       } catch (error) {
@@ -1211,7 +1215,7 @@ function WorkspaceApp() {
           }
         })
         if (finalStatus === 'complete' && shouldRefreshSideTitle) void refreshSessionList().catch(() => {})
-        if (finalStatus === 'complete') notifyDesktop('Luma 已回复', assistantContent)
+        if (finalStatus === 'complete') notifyDesktop(`${typeof productName === 'string' && productName ? productName : 'Luma'} 已回复`, assistantContent)
         return true
       }
       return false
@@ -1507,7 +1511,7 @@ function WorkspaceApp() {
 
   async function addTask() {
     if (offline) { notify('服务暂时不可用，请稍后重试'); return }
-    const title = window.prompt('你想让 Luma 跟进什么？')?.trim()
+    const title = window.prompt(`你想让 ${productName} 跟进什么？`)?.trim()
     if (!title) return
     const task = { id: `local-task-${Date.now()}`, title, description: '由对话创建，等待继续拆解', status: 'todo', progress: 0, due_at: '待安排' }
     setData((current) => ({ ...current, tasks: [task, ...current.tasks] }))
@@ -1579,7 +1583,7 @@ function WorkspaceApp() {
 
   async function addMemory() {
     if (offline) { notify('服务暂时不可用，请稍后重试'); return }
-    const content = window.prompt('要让 Luma 记住什么？')?.trim()
+    const content = window.prompt(`要让 ${productName} 记住什么？`)?.trim()
     if (!content) return
     const memory = { id: `local-memory-${Date.now()}`, category: 'fact', content }
     setData((current) => ({ ...current, memories: [memory, ...current.memories] }))
@@ -1743,12 +1747,12 @@ function WorkspaceApp() {
     : ({ missions: '目标', library: '资源库', activity: '动态', ideas: '点子' })[view]
 
   return (
-    <div className={`app-shell ${resolvedTheme === 'light' ? 'theme-light' : ''} muse-shell font-${settings.fontSize} view-${view} ${view === 'chat' && panelOpen ? 'panel-open' : ''} ${chatsPanelOpen ? 'chats-open' : ''}`} style={{ '--mc-user': settings.accent }}>
-      {updateAvailable && <div className="app-update-banner" role="status"><span>Luma 已更新</span><button type="button" onClick={() => window.location.reload()}>刷新</button><button type="button" className="app-update-close" aria-label="关闭更新提示" onClick={() => setUpdateAvailable(false)}>×</button></div>}
+    <div className={`app-shell ${resolvedTheme === 'light' ? 'theme-light' : ''} muse-shell font-${settings.fontSize} view-${view} ${view === 'chat' && panelOpen ? 'panel-open' : ''} ${chatsPanelOpen ? 'chats-open' : ''}`} style={settings.accent ? { '--mc-user': settings.accent } : undefined}>
+      {updateAvailable && <div className="app-update-banner" role="status"><span>{productName} 已更新</span><button type="button" onClick={() => window.location.reload()}>刷新</button><button type="button" className="app-update-close" aria-label="关闭更新提示" onClick={() => setUpdateAvailable(false)}>×</button></div>}
       {serviceUnavailable && <div className="app-service-banner" role="alert"><span>服务暂时不可用，将自动重试</span><button type="button" onClick={() => setServiceUnavailable(false)}>知道了</button></div>}
       {loadError && <div className="app-error-banner" role="alert"><span>{loadError}</span><button type="button" onClick={() => window.location.reload()}>重试</button></div>}
       <aside className="sidebar">
-        <div className="brand"><div className="brand-mark"><LumaLogo label="Luma" /></div><div><span>personal operating system</span></div></div>
+        <div className="brand"><div className="brand-mark"><BrandLogo labelled /></div><div><span>{brand.tagline}</span></div></div>
         <nav className="nav" aria-label="主导航">
           {navItems.map((item) => <button className={`nav-item ${view === item.id ? 'active' : ''}`} key={item.id} aria-label={item.label} aria-current={view === item.id ? 'page' : undefined} data-tip={item.label} data-icon={item.icon} onClick={() => handleNavClick(item)}><Icon name={item.icon} /><span className="nav-label">{item.label}</span><em>{item.id === 'missions' ? pendingTasks.length : ''}</em></button>)}
         </nav>
@@ -1762,7 +1766,7 @@ function WorkspaceApp() {
             <div className="chat-menu-pill"><button aria-label={chatsPanelOpen ? '关闭聊天面板' : '打开聊天面板'} onClick={() => setChatsPanelOpen((open) => !open)}><Icon name="menu" /></button><span>{viewLabel}</span></div>
             {view === 'chat' && data.sessions.some((session) => session.kind === 'main' && completedSessions.has(session.id)) && <button type="button" className="main-chat-completed" aria-label="主聊天已完成回复" title="主聊天已完成回复" onClick={() => openSession(data.sessions.find((session) => session.kind === 'main').id)}><span className="session-completed-dot" /></button>}
           </div>
-          <div className="topbar-logo"><LumaLogo label="Luma" /></div>
+          <div className="topbar-logo"><BrandLogo labelled /></div>
           <div className="top-actions">{view === 'chat' && !panelOpen && <button className="icon-btn panel-toggle" title="打开动态面板" aria-label="打开动态面板" onClick={() => setPanelOpen(true)}><Icon name="spark" /></button>}</div>
         </header>
         {view === 'chat' && <ChatView data={data} pendingTasks={pendingTasks} input={input} setInput={setInput} composerResetKey={composerResetKey} voiceStartKey={voiceStartKey} onVoiceStartConsumed={() => setVoiceStartKey(0)} sendMessage={sendMessage} sentMessageVersion={sentMessageVersion} widgetPending={widgetPendingSessions.has(data.sessionId)} sending={sending} offline={offline} onWidgetEvent={onWidgetEvent} onRuntimeApproval={decideRuntimeApproval} notify={notify} setView={setView} enterToSend={settings.enterToSend} voiceRaw={settings.voiceRaw} hasConversation={hasConversation} files={files} uploading={uploading} onUploadFile={uploadFile} onRemoveFile={removeFile} onCancelMessage={cancelMessage} onRetryMessage={retryMessage} onLoadOlder={loadOlderMessages} hasMoreMessages={hasMoreMessages} loadingOlder={loadingOlder} highlightedMessageId={highlightedMessageId} />}
@@ -1781,6 +1785,7 @@ function WorkspaceApp() {
 }
 
 function ChatView({ data, pendingTasks, input, setInput, composerResetKey, voiceStartKey, onVoiceStartConsumed, sendMessage, sentMessageVersion, widgetPending, sending, offline, onWidgetEvent, onRuntimeApproval, notify, setView, enterToSend, voiceRaw, hasConversation, files, uploading, onUploadFile, onRemoveFile, onLoadOlder, hasMoreMessages = false, loadingOlder = false, onCancelMessage, onRetryMessage, highlightedMessageId = '' }) {
+  const productName = useBrand().product_name
   const messagesRef = useRef(null)
   const fileInputRef = useRef(null)
   const scrollAnchorRef = useRef(null)
@@ -1871,7 +1876,7 @@ function ChatView({ data, pendingTasks, input, setInput, composerResetKey, voice
   const canSend = !widgetPending && Boolean(generating || input.trim() || files.length > 0)
   const handleSendClick = generating ? () => onCancelMessage?.(activeStreamingMessage) : undefined
   return <section className={`dashboard muse-chat-view ${hasConversation ? 'conversation-started' : ''}`}>
-    <div className={`chat-layout ${hasConversation ? 'active-chat' : ''}`}><div className="chat-column"><div className="messages" ref={messagesRef} onScroll={handleScroll}>{loadingOlder && <div className="messages-loading-older" role="status">正在加载更早的消息…</div>}{!timeline.length && <div className="empty-state chat-empty-state"><LumaLogo className="empty-state-logo" /><h4>暂无消息</h4><p>发送一条消息，开始和 Luma 对话。</p></div>}{timeline.map(({ message, label }, index) => <React.Fragment key={message.id}>{label && <div className="chat-time">{label}</div>}<Message message={message} highlighted={message.id === highlightedMessageId} onWidgetEvent={onWidgetEvent} onRuntimeApproval={onRuntimeApproval} disabled={sending || widgetPending} offline={offline} notify={notify} onRetry={onRetryMessage ? () => onRetryMessage(message, timeline[index - 1]?.message) : undefined} /></React.Fragment>)}</div><div className="composer-wrap" ref={composerRef}><div className="composer-files" aria-label="待发送文件">{files.map((file) => <span className="composer-file" key={file.id}>{file.filename}<button type="button" onClick={() => onRemoveFile(file.id)} aria-label={`移除 ${file.filename}`}><Icon name="close" size={15} /></button></span>)}</div><Composer input={input} setInput={setInput} resetKey={composerResetKey} voiceStartKey={voiceStartKey} onVoiceStartConsumed={onVoiceStartConsumed} sendMessage={sendMessage} enterToSend={enterToSend} canSend={canSend} generating={generating} onCancelMessage={handleSendClick} onAttach={() => fileInputRef.current?.click()} sessionId={data.sessionId} voiceRaw={voiceRaw} request={request} notify={notify} errorDetail={errorDetail} /><input ref={fileInputRef} type="file" hidden multiple onChange={(event) => { Array.from(event.target.files || []).forEach(onUploadFile); event.target.value = '' }} /></div></div></div>
+    <div className={`chat-layout ${hasConversation ? 'active-chat' : ''}`}><div className="chat-column"><div className="messages" ref={messagesRef} onScroll={handleScroll}>{loadingOlder && <div className="messages-loading-older" role="status">正在加载更早的消息…</div>}{!timeline.length && <div className="empty-state chat-empty-state"><BrandLogo className="empty-state-logo" /><h4>暂无消息</h4><p>发送一条消息，开始和 {productName} 对话。</p></div>}{timeline.map(({ message, label }, index) => <React.Fragment key={message.id}>{label && <div className="chat-time">{label}</div>}<Message message={message} highlighted={message.id === highlightedMessageId} onWidgetEvent={onWidgetEvent} onRuntimeApproval={onRuntimeApproval} disabled={sending || widgetPending} offline={offline} notify={notify} onRetry={onRetryMessage ? () => onRetryMessage(message, timeline[index - 1]?.message) : undefined} /></React.Fragment>)}</div><div className="composer-wrap" ref={composerRef}><div className="composer-files" aria-label="待发送文件">{files.map((file) => <span className="composer-file" key={file.id}>{file.filename}<button type="button" onClick={() => onRemoveFile(file.id)} aria-label={`移除 ${file.filename}`}><Icon name="close" size={15} /></button></span>)}</div><Composer input={input} setInput={setInput} resetKey={composerResetKey} voiceStartKey={voiceStartKey} onVoiceStartConsumed={onVoiceStartConsumed} sendMessage={sendMessage} enterToSend={enterToSend} canSend={canSend} generating={generating} onCancelMessage={handleSendClick} onAttach={() => fileInputRef.current?.click()} sessionId={data.sessionId} voiceRaw={voiceRaw} request={request} notify={notify} errorDetail={errorDetail} /><input ref={fileInputRef} type="file" hidden multiple onChange={(event) => { Array.from(event.target.files || []).forEach(onUploadFile); event.target.value = '' }} /></div></div></div>
   </section>
 }
 
@@ -1984,6 +1989,7 @@ function McpConnectorRow({ connector, toggleConnector, notify, refresh }) {
 }
 
 function SettingsModal({ settings, setSettings, account, onProfileUpdated, provider, offline, data, pendingTasks, panelOpen, setPanelOpen, notify, onOpenSession, onOpenAdmin, addMemory, removeMemory, confirmMemory, toggleMemoryPinned, onClose, onRefresh }) {
+  const productName = useBrand().product_name
   const [section, setSection] = useState('general')
   const isAdmin = account?.role === 'admin'
   const [permission, setPermission] = useState(notificationPermission)
@@ -2043,8 +2049,8 @@ function SettingsModal({ settings, setSettings, account, onProfileUpdated, provi
   }
 
   function testNotification() {
-    if (permission !== 'granted') { notify('请先在浏览器中允许 Luma 发送通知'); return }
-    new Notification('Luma', { body: '桌面通知已开启，回复完成时会在这里提醒你。' })
+    if (permission !== 'granted') { notify(`请先在浏览器中允许 ${productName} 发送通知`); return }
+    new Notification(productName, { body: '桌面通知已开启，回复完成时会在这里提醒你。' })
   }
 
   async function releaseSandbox() {
@@ -2082,7 +2088,7 @@ function SettingsModal({ settings, setSettings, account, onProfileUpdated, provi
       const url = URL.createObjectURL(new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' }))
       const link = document.createElement('a')
       link.href = url
-      link.download = `luma-export-${new Date().toISOString().slice(0, 10)}.json`
+      link.download = `assistant-export-${new Date().toISOString().slice(0, 10)}.json`
       link.click()
       URL.revokeObjectURL(url)
     } catch (error) {
@@ -2093,7 +2099,7 @@ function SettingsModal({ settings, setSettings, account, onProfileUpdated, provi
   }
 
   function resetPreferences() {
-    setSettings((current) => ({ ...current, theme: 'light', notifications: true, enterToSend: true, voiceRaw: false, accent: ACCENTS[0].value, fontSize: 'standard' }))
+    setSettings((current) => ({ ...current, theme: 'light', notifications: true, enterToSend: true, voiceRaw: false, accent: '', fontSize: 'standard' }))
     notify('偏好已恢复默认')
   }
 
@@ -2148,7 +2154,7 @@ function SettingsModal({ settings, setSettings, account, onProfileUpdated, provi
     </div>,
     notifications: <>
       <div className="ms-group">
-        <SettingRow title="桌面通知" hint="窗口不在前台时，Luma 回复完成会提醒你"><Switch label="桌面通知" checked={settings.notifications && permission === 'granted'} onChange={toggleNotifications} /></SettingRow>
+        <SettingRow title="桌面通知" hint={`窗口不在前台时，${productName} 回复完成会提醒你`}><Switch label="桌面通知" checked={settings.notifications && permission === 'granted'} onChange={toggleNotifications} /></SettingRow>
         <SettingRow title="浏览器权限" hint={permission === 'denied' ? '已被拒绝，请在浏览器地址栏的网站设置中重新允许' : undefined}><span className="ms-value"><StatusDot ok={permission === 'granted'} pending={permission === 'default'} />{{ granted: '已允许', denied: '已拒绝', default: '未询问', unsupported: '不支持' }[permission]}</span></SettingRow>
         <SettingRow title="发送测试通知"><button type="button" className="ms-btn" onClick={testNotification}>测试</button></SettingRow>
       </div>
@@ -2168,7 +2174,7 @@ function SettingsModal({ settings, setSettings, account, onProfileUpdated, provi
       <div className="mcp-section-heading"><h4>MCP 连接器</h4><button type="button" className="ms-btn" onClick={() => setMcpAddOpen((value) => !value)}>{mcpAddOpen ? '收起' : '添加 MCP'}</button></div>
       {mcpAddOpen && <McpAddForm notify={notify} busy={busy} setBusy={setBusy} onAdded={(close = true) => { if (close) setMcpAddOpen(false); request('/connectors').then(setConnectors).catch(() => {}) }} />}
       <div className="ms-group mcp-list">
-        {connectors === null ? <SettingRow title="正在加载…" /> : connectors.filter((connector) => connector.kind === 'mcp').length ? connectors.filter((connector) => connector.kind === 'mcp').map((connector) => <McpConnectorRow key={connector.id} connector={connector} toggleConnector={toggleConnector} notify={notify} refresh={updateConnector} />) : <SettingRow title="还没有 MCP 连接器" hint="添加远程 MCP 服务后，Luma 可以按需查询工具" />}
+        {connectors === null ? <SettingRow title="正在加载…" /> : connectors.filter((connector) => connector.kind === 'mcp').length ? connectors.filter((connector) => connector.kind === 'mcp').map((connector) => <McpConnectorRow key={connector.id} connector={connector} toggleConnector={toggleConnector} notify={notify} refresh={updateConnector} />) : <SettingRow title="还没有 MCP 连接器" hint={`添加远程 MCP 服务后，${productName} 可以按需查询工具`} />}
       </div>
       <h4>模型服务</h4>
       <div className="ms-group">
@@ -2184,14 +2190,14 @@ function SettingsModal({ settings, setSettings, account, onProfileUpdated, provi
       </div>
       <h4>已添加的连接器</h4>
       <div className="ms-group">
-        {connectors === null ? <SettingRow title="正在加载…" /> : connectors.filter((connector) => connector.kind !== 'mcp').length ? connectors.filter((connector) => connector.kind !== 'mcp').map((connector) => <SettingRow key={connector.id} title={connector.name} hint={[connector.kind, ...(connector.capabilities || [])].join(' · ')}><Switch label={connector.name} checked={connector.enabled} onChange={(enabled) => toggleConnector(connector, enabled)} /></SettingRow>) : <SettingRow title="还没有其他连接器" hint="连接邮箱、日历或其他服务后，Luma 可以替你读取和处理" />}
+        {connectors === null ? <SettingRow title="正在加载…" /> : connectors.filter((connector) => connector.kind !== 'mcp').length ? connectors.filter((connector) => connector.kind !== 'mcp').map((connector) => <SettingRow key={connector.id} title={connector.name} hint={[connector.kind, ...(connector.capabilities || [])].join(' · ')}><Switch label={connector.name} checked={connector.enabled} onChange={(enabled) => toggleConnector(connector, enabled)} /></SettingRow>) : <SettingRow title="还没有其他连接器" hint={`连接邮箱、日历或其他服务后，${productName} 可以替你读取和处理`} />}
       </div>
       <p className="ms-note">令牌只加密保存在服务端，浏览器和模型都看不到。</p>
     </>,
     data: <>
       <div className="ms-group">
         <SettingRow title="导出全部数据" hint="对话、任务、记忆和目标，导出为 JSON 文件"><button type="button" className="ms-btn" disabled={busy === 'export'} onClick={exportData}><Icon name="download" size={15} />{busy === 'export' ? '导出中…' : '导出'}</button></SettingRow>
-        <SettingRow title="记忆" hint={`Luma 记住了 ${data.memories.length} 条关于你的信息`}><button type="button" className="ms-btn" onClick={() => setSection('memory')}>管理</button></SettingRow>
+        <SettingRow title="记忆" hint={`${productName} 记住了 ${data.memories.length} 条关于你的信息`}><button type="button" className="ms-btn" onClick={() => setSection('memory')}>管理</button></SettingRow>
         <SettingRow title="重置偏好" hint="外观、字号和通知恢复为默认，不影响任何数据"><button type="button" className="ms-btn" onClick={resetPreferences}>重置</button></SettingRow>
       </div>
       <p className="ms-note">你的数据存放在你部署的服务器上。模型密钥只保存在服务端。</p>
@@ -2201,7 +2207,7 @@ function SettingsModal({ settings, setSettings, account, onProfileUpdated, provi
     </div>,
     help: <>
       <div className="ms-group">
-        <SettingRow title="版本"><span className="ms-value">Luma {__APP_VERSION__}</span></SettingRow>
+        <SettingRow title="版本"><span className="ms-value">{productName} {__APP_VERSION__}</span></SettingRow>
         <SettingRow title="服务地址"><span className="ms-value muted">{API_URL.replace(/\/api\/v1$/, '')}</span></SettingRow>
       </div>
       <h4>快捷键</h4>
@@ -2453,7 +2459,7 @@ function Message({ message, onWidgetEvent, onRuntimeApproval, disabled, offline,
   const toolEvents = isAssistant ? (streaming ? liveToolEvents : displayedToolEvents) : []
   const showTypingIndicator = isAssistant && streaming && !String(message.content || '').trim() && parts.length === 0
   return <div data-message-id={message.id} className={`message ${message.role} ${isAssistant && (message.metadata?.proactive || message.metadata?.feed_post_id) ? 'has-source-labels' : ''} ${highlighted ? 'message-highlighted' : ''} ${streaming ? 'streaming' : ''} ${errored ? 'error' : ''} ${incomplete ? 'incomplete' : ''} ${hasWidget || toolEvents.length ? 'has-widget' : ''} ${message.role === 'user' && message.metadata?.widget_event ? 'widget-reply' : ''}`} aria-busy={streaming || undefined}>
-    <div className="message-avatar">{isAssistant ? <LumaLogo /> : <Icon name="screen-user" size={14} />}</div>
+    <div className="message-avatar">{isAssistant ? <BrandLogo /> : <Icon name="screen-user" size={14} />}</div>
     {isAssistant && <ProactiveLabels message={message} />}
     {isAssistant && toolEvents.length > 0 && <ToolStatusRows events={toolEvents} onRuntimeApproval={onRuntimeApproval} />}
     {isAssistant ? (showTypingIndicator
@@ -2533,6 +2539,7 @@ function activityDay(item) {
 }
 
 function ContextPanel({ data, pendingTasks, offline, onClose, decideRuntimeApproval }) {
+  const productName = useBrand().product_name
   const [tab, setTab] = useState('activity')
   const activityGroups = useMemo(() => data.activity.reduce((groups, item) => {
     const label = activityDay(item)
@@ -2542,14 +2549,14 @@ function ContextPanel({ data, pendingTasks, offline, onClose, decideRuntimeAppro
     return groups
   }, []), [data.activity])
 
-  return <aside className="context-panel" aria-label="Luma 动态">
+  return <aside className="context-panel" aria-label={`${productName} 动态`}>
     <button className="context-close" aria-label="关闭面板" title="关闭" onClick={onClose}><Icon name="close" size={18} /></button>
-    <div className="context-agent"><div className="context-avatar"><LumaLogo /></div><strong>Luma</strong><span className={`context-status ${offline ? '' : 'online'}`}><i />{offline ? '离线' : '已连接'}</span></div>
+    <div className="context-agent"><div className="context-avatar"><BrandLogo /></div><strong>{productName}</strong><span className={`context-status ${offline ? '' : 'online'}`}><i />{offline ? '离线' : '已连接'}</span></div>
     <div className="context-tabs" role="tablist">{contextTabs.map((item) => <button key={item.id} role="tab" aria-selected={tab === item.id} aria-label={item.label} title={item.label} className={tab === item.id ? 'active' : ''} onClick={() => setTab(item.id)}><Icon name={item.icon} size={17} /></button>)}</div>
     {tab === 'activity' && (activityGroups.length ? activityGroups.map((group) => <section className="context-group" key={group.label}><h4>{group.label}</h4>{group.items.map((item, index) => <ContextItem key={index} icon="check-circle" title={item.title || item.text} detail={item.detail} time={item.time} />)}</section>) : <p className="context-empty">还没有动态</p>)}
     {tab === 'approvals' && (data.approvals.length ? <section className="context-group"><h4>等你确认</h4>{data.approvals.map((approval) => <ContextItem key={approval.id} icon="shield" title={`确认${approval.action === 'create_memory' ? '保存一条记忆' : '后台操作'}`} detail={approval.payload?.content || approval.payload?.title}><div className="context-actions"><button onClick={() => decideRuntimeApproval(approval.id, 'reject')}>拒绝</button><button className="primary" onClick={() => decideRuntimeApproval(approval.id, 'approve')}>批准</button>{approval.allow_always === true && <button onClick={() => decideRuntimeApproval(approval.id, 'approve', true)}>始终允许</button>}</div></ContextItem>)}</section> : <p className="context-empty">没有需要你确认的操作</p>)}
     {tab === 'tasks' && (pendingTasks.length ? <section className="context-group"><h4>进行中</h4>{pendingTasks.map((task) => <ContextItem key={task.id} icon="goal" title={task.title} detail={task.description} time={`${statusLabel(task.status)} · ${task.progress || 0}%`}><div className="context-progress"><i style={{ width: `${task.progress || 0}%` }} /></div></ContextItem>)}</section> : <p className="context-empty">暂时没有进行中的任务</p>)}
-    {tab === 'memory' && (data.memories.length ? <section className="context-group"><h4>Luma 记得</h4>{data.memories.map((memory) => <ContextItem key={memory.id} icon="library" title={memory.content} time={memory.category === 'preference' ? '偏好' : memory.category === 'fact' ? '事实' : memory.category} />)}</section> : <p className="context-empty">还没有记忆</p>)}
+    {tab === 'memory' && (data.memories.length ? <section className="context-group"><h4>{productName} 记得</h4>{data.memories.map((memory) => <ContextItem key={memory.id} icon="library" title={memory.content} time={memory.category === 'preference' ? '偏好' : memory.category === 'fact' ? '事实' : memory.category} />)}</section> : <p className="context-empty">还没有记忆</p>)}
   </aside>
 }
 
@@ -2618,11 +2625,13 @@ function RoutineSection({ routines = [], onCreate, onUpdate, onDelete, onRun }) 
 }
 
 function MissionsView({ goals, tasks, runtimeJobs, approvals, routines = [], addTask, startRuntimeJob, decideRuntimeApproval, onCreateRoutine, onUpdateRoutine, onDeleteRoutine, onRunRoutine }) {
-  return <section className="subview"><div className="section-heading"><div><span className="label">MISSIONS</span><h3>让事情持续向前</h3><p className="subcopy">目标和任务写入远端数据库，runtime 会在后台继续处理；需要写入长期记忆时会先等你确认。</p></div><div className="section-actions"><button className="secondary-btn" onClick={() => startRuntimeJob('briefing')}>运行简报</button><button className="primary-btn" onClick={addTask}>＋ 新任务</button></div></div>{goals?.length > 0 && <><div className="rail-heading goal-list-heading"><span>长期目标</span><span>{goals.length} 个目标</span></div><div className="mission-grid">{goals.map((goal) => <article className={`mission-card ${goal.status === 'completed' ? 'done' : ''}`} key={goal.id}><span className="status">{goal.status === 'completed' ? '已完成' : '长期目标'}</span><h4>{goal.title}</h4><p>{goal.description || '持续推进中的长期目标。'}</p><div className="progress"><i style={{ width: `${goal.progress || 0}%` }} /></div><div className="item-meta">{goal.progress || 0}% · {goal.due_at ? formatTime(goal.due_at) : '持续跟进'}</div></article>)}</div></>}{approvals.length > 0 && <div className="approval-stack">{approvals.map((approval) => <article className="approval-card" key={approval.id}><div><span className="status waiting">等待你确认</span><h4>确认 {approval.action === 'create_memory' ? '保存一条记忆' : '后台操作'}</h4><p>{approval.payload?.content || approval.payload?.title || 'runtime 请求执行一项写入操作。'}</p></div><div className="approval-actions"><button className="secondary-btn" onClick={() => decideRuntimeApproval(approval.id, 'reject')}>拒绝</button><button className="primary-btn" onClick={() => decideRuntimeApproval(approval.id, 'approve')}>批准</button>{approval.allow_always === true && <button className="secondary-btn" onClick={() => decideRuntimeApproval(approval.id, 'approve', true)}>始终允许</button>}</div></article>)}</div>}<div className="mission-grid">{tasks.length ? tasks.map((task) => <article className={`mission-card ${task.status === 'done' ? 'done' : ''}`} key={task.id}><span className="status">{statusLabel(task.status)}</span><h4>{task.title}</h4><p>{task.description || ''}</p><div className="progress"><i style={{ width: `${task.progress || 0}%` }} /></div><div className="item-meta">{task.due_at || '未安排'} · {task.progress || 0}%</div></article>) : <EmptyState title="还没有任务" description="把想做的事交给 Luma，它会持续跟进。" />}</div><div className="runtime-jobs">{runtimeJobs.slice(0, 8).map((job) => <div className="runtime-job" key={job.id}><span className={`runtime-dot ${job.status}`} /><div><strong>{job.type}</strong><small>{statusLabel(job.status)} · {formatTime(job.updated_at)}</small></div>{job.result?.task_id && <em>已创建任务</em>}</div>)}</div><RoutineSection routines={routines} onCreate={onCreateRoutine} onUpdate={onUpdateRoutine} onDelete={onDeleteRoutine} onRun={onRunRoutine} /></section>
+  const productName = useBrand().product_name
+  return <section className="subview"><div className="section-heading"><div><span className="label">MISSIONS</span><h3>让事情持续向前</h3><p className="subcopy">目标和任务写入远端数据库，runtime 会在后台继续处理；需要写入长期记忆时会先等你确认。</p></div><div className="section-actions"><button className="secondary-btn" onClick={() => startRuntimeJob('briefing')}>运行简报</button><button className="primary-btn" onClick={addTask}>＋ 新任务</button></div></div>{goals?.length > 0 && <><div className="rail-heading goal-list-heading"><span>长期目标</span><span>{goals.length} 个目标</span></div><div className="mission-grid">{goals.map((goal) => <article className={`mission-card ${goal.status === 'completed' ? 'done' : ''}`} key={goal.id}><span className="status">{goal.status === 'completed' ? '已完成' : '长期目标'}</span><h4>{goal.title}</h4><p>{goal.description || '持续推进中的长期目标。'}</p><div className="progress"><i style={{ width: `${goal.progress || 0}%` }} /></div><div className="item-meta">{goal.progress || 0}% · {goal.due_at ? formatTime(goal.due_at) : '持续跟进'}</div></article>)}</div></>}{approvals.length > 0 && <div className="approval-stack">{approvals.map((approval) => <article className="approval-card" key={approval.id}><div><span className="status waiting">等待你确认</span><h4>确认 {approval.action === 'create_memory' ? '保存一条记忆' : '后台操作'}</h4><p>{approval.payload?.content || approval.payload?.title || 'runtime 请求执行一项写入操作。'}</p></div><div className="approval-actions"><button className="secondary-btn" onClick={() => decideRuntimeApproval(approval.id, 'reject')}>拒绝</button><button className="primary-btn" onClick={() => decideRuntimeApproval(approval.id, 'approve')}>批准</button>{approval.allow_always === true && <button className="secondary-btn" onClick={() => decideRuntimeApproval(approval.id, 'approve', true)}>始终允许</button>}</div></article>)}</div>}<div className="mission-grid">{tasks.length ? tasks.map((task) => <article className={`mission-card ${task.status === 'done' ? 'done' : ''}`} key={task.id}><span className="status">{statusLabel(task.status)}</span><h4>{task.title}</h4><p>{task.description || ''}</p><div className="progress"><i style={{ width: `${task.progress || 0}%` }} /></div><div className="item-meta">{task.due_at || '未安排'} · {task.progress || 0}%</div></article>) : <EmptyState title="还没有任务" description={`把想做的事交给 ${productName}，它会持续跟进。`} />}</div><div className="runtime-jobs">{runtimeJobs.slice(0, 8).map((job) => <div className="runtime-job" key={job.id}><span className={`runtime-dot ${job.status}`} /><div><strong>{job.type}</strong><small>{statusLabel(job.status)} · {formatTime(job.updated_at)}</small></div>{job.result?.task_id && <em>已创建任务</em>}</div>)}</div><RoutineSection routines={routines} onCreate={onCreateRoutine} onUpdate={onUpdateRoutine} onDelete={onDeleteRoutine} onRun={onRunRoutine} /></section>
 }
 
 function MemoryView({ memories, addMemory, removeMemory, confirmMemory, toggleMemoryPinned }) {
-  return <section className="subview"><div className="section-heading"><div><span className="label">MEMORY</span><h3>Luma 记得什么</h3><p className="subcopy">你可以随时查看、编辑或删除。推断内容会先等待你的确认。</p></div><button className="primary-btn" onClick={addMemory}>＋ 添加记忆</button></div><div className="memory-grid">{memories.length ? memories.map((memory) => {
+  const productName = useBrand().product_name
+  return <section className="subview"><div className="section-heading"><div><span className="label">MEMORY</span><h3>{productName} 记得什么</h3><p className="subcopy">你可以随时查看、编辑或删除。推断内容会先等待你的确认。</p></div><button className="primary-btn" onClick={addMemory}>＋ 添加记忆</button></div><div className="memory-grid">{memories.length ? memories.map((memory) => {
     const inferred = memory.category === 'inferred' || memory.category === '推断'
     const label = inferred ? '推断' : ({ preference: '偏好', fact: '事实' })[memory.category] || memory.category || '记忆'
     return <article className={`memory-card ${memory.pinned ? 'pinned' : ''}`} key={memory.id}><div className="memory-card-head"><span className="memory-type">{label}</span><button type="button" className="memory-pin" aria-pressed={Boolean(memory.pinned)} onClick={() => toggleMemoryPinned?.(memory.id, !memory.pinned)}>{memory.pinned ? '已置顶' : '置顶'}</button></div><p>{memory.content}</p><div className="memory-card-actions">{inferred && <button type="button" className="memory-confirm" onClick={() => confirmMemory?.(memory.id)}>确认</button>}<button type="button" onClick={() => removeMemory(memory.id)}>删除</button></div></article>
@@ -2630,7 +2639,7 @@ function MemoryView({ memories, addMemory, removeMemory, confirmMemory, toggleMe
 }
 
 function EmptyState({ title, description }) {
-  return <div className="empty-state"><LumaLogo className="empty-state-logo" /><h4>{title}</h4><p>{description}</p></div>
+  return <div className="empty-state"><BrandLogo className="empty-state-logo" /><h4>{title}</h4><p>{description}</p></div>
 }
 
 function navigate(path, { replace = false } = {}) {
@@ -2640,43 +2649,46 @@ function navigate(path, { replace = false } = {}) {
 }
 
 function Brand({ compact = false }) {
-  return <div className={`site-brand ${compact ? 'compact' : ''}`}><span className="site-brand-mark"><LumaLogo label="Luma" /></span><span>{!compact && <small>personal operating system</small>}</span></div>
+  const brand = useBrand()
+  return <div className={`site-brand ${compact ? 'compact' : ''}`}><span className="site-brand-mark"><BrandLogo labelled /></span><span>{!compact && <small>{brand.tagline}</small>}</span></div>
 }
 
 function LandingPage() {
+  const productName = useBrand().product_name
+  const brandMark = productName.toUpperCase()
   const [openFeature, setOpenFeature] = useState(0)
   const features = [
-    { title: '像聊天一样自然', body: '告诉 Luma 你想完成什么。它会理解上下文、记住进度，并把复杂的事情拆成下一步。' },
-    { title: '一台属于你的安全电脑', body: 'Luma 的运行时会持续工作，浏览网页、整理文件、执行任务，并在需要时回来找你确认。' },
-    { title: '始终推进你的目标', body: '把一次想法变成长期计划。Luma 会追踪变化，在合适的时间提醒你并提出下一步建议。' },
-    { title: '连接你已经在用的工具', body: '从邮件、日历到团队工具，Luma 可以在你的授权范围内读懂信息并协助行动。' },
+    { title: '像聊天一样自然', body: `告诉 ${productName} 你想完成什么。它会理解上下文、记住进度，并把复杂的事情拆成下一步。` },
+    { title: '一台属于你的安全电脑', body: `${productName} 的运行时会持续工作，浏览网页、整理文件、执行任务，并在需要时回来找你确认。` },
+    { title: '始终推进你的目标', body: `把一次想法变成长期计划。${productName} 会追踪变化，在合适的时间提醒你并提出下一步建议。` },
+    { title: '连接你已经在用的工具', body: `从邮件、日历到团队工具，${productName} 可以在你的授权范围内读懂信息并协助行动。` },
   ]
   return <div className="muse-site">
     <header className="muse-nav">
-      <div className="muse-nav-left"><button className="muse-menu" aria-label="打开菜单">☰</button><button className="muse-brand" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><LumaLogo label="Luma" /></button></div>
+      <div className="muse-nav-left"><button className="muse-menu" aria-label="打开菜单">☰</button><button className="muse-brand" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><BrandLogo labelled /></button></div>
       <nav className="muse-nav-links"><a href="#features">功能</a><a href="#security">安全</a><a href="#goals">目标</a><a href="#faq">常见问题</a></nav>
       <div className="muse-nav-actions"><button className="muse-login" onClick={() => navigate('/login')}>登录</button><button className="muse-cta small" onClick={() => navigate('/login')}>开始使用 <span>↗</span></button></div>
     </header>
     <main>
       <section className="muse-hero">
         <div className="muse-hero-backdrop" />
-        <div className="muse-hero-copy"><span className="muse-kicker light">你的个人 AI 助理</span><h1>把琐事交给 Luma，<br /><em>专注真正重要的事。</em></h1><p>从对话到行动，Luma 在你身边持续工作，帮你完成那些一直没时间完成的事。</p><button className="muse-cta" onClick={() => navigate('/login')}>开始使用 <span>→</span></button></div>
-        <div className="muse-hero-scene" aria-label="Luma personal workspace preview"><div className="muse-scene-glow" /><div className="muse-scene-window"><div className="muse-scene-bar"><span /><span /><span /><b>LUMA / PERSONAL SPACE</b></div><div className="muse-scene-content"><small>GOOD MORNING</small><h2>今天有空间<br />做重要的事。</h2><div className="muse-scene-message"><i><LumaLogo /></i><div><b>我已经整理好今天的重点。</b><small>3 个任务 · 2 个待确认事项</small></div></div><div className="muse-scene-input">告诉我你正在想什么… <strong>↑</strong></div></div></div><div className="muse-scene-chip chip-one">◫ <span>任务持续跟进</span><b>64%</b></div><div className="muse-scene-chip chip-two">✧ <span>记住你的偏好</span></div></div>
+        <div className="muse-hero-copy"><span className="muse-kicker light">你的个人 AI 助理</span><h1>把琐事交给 {productName}，<br /><em>专注真正重要的事。</em></h1><p>从对话到行动，{productName} 在你身边持续工作，帮你完成那些一直没时间完成的事。</p><button className="muse-cta" onClick={() => navigate('/login')}>开始使用 <span>→</span></button></div>
+        <div className="muse-hero-scene" aria-label={`${productName} personal workspace preview`}><div className="muse-scene-glow" /><div className="muse-scene-window"><div className="muse-scene-bar"><span /><span /><span /><b>{brandMark} / PERSONAL SPACE</b></div><div className="muse-scene-content"><small>GOOD MORNING</small><h2>今天有空间<br />做重要的事。</h2><div className="muse-scene-message"><i><BrandLogo /></i><div><b>我已经整理好今天的重点。</b><small>3 个任务 · 2 个待确认事项</small></div></div><div className="muse-scene-input">告诉我你正在想什么… <strong>↑</strong></div></div></div><div className="muse-scene-chip chip-one">◫ <span>任务持续跟进</span><b>64%</b></div><div className="muse-scene-chip chip-two">✧ <span>记住你的偏好</span></div></div>
         <div className="muse-hero-scroll">向下探索 <span>↓</span></div>
       </section>
 
-      <section className="muse-intro"><span className="muse-kicker">LUMA FEATURES</span><div className="muse-intro-row"><h2>把忙碌交给它，<br /><span>把时间留给自己。</span></h2><div><p>Luma 了解你的目标和节奏，在你授权的范围内持续行动，让每一天真正重要的事情向前推进。</p><button className="muse-cta blue" onClick={() => navigate('/login')}>试用 Luma <span>→</span></button></div></div></section>
+      <section className="muse-intro"><span className="muse-kicker">{brandMark} FEATURES</span><div className="muse-intro-row"><h2>把忙碌交给它，<br /><span>把时间留给自己。</span></h2><div><p>{productName} 了解你的目标和节奏，在你授权的范围内持续行动，让每一天真正重要的事情向前推进。</p><button className="muse-cta blue" onClick={() => navigate('/login')}>试用 {productName} <span>→</span></button></div></div></section>
 
-      <section className="muse-features" id="features"><div className="muse-feature-list">{features.map((feature, index) => <button className={`muse-feature-row ${openFeature === index ? 'active' : ''}`} key={feature.title} onClick={() => setOpenFeature(index)}><span><strong>{feature.title}</strong>{openFeature === index && <small>{feature.body}</small>}</span><b>{openFeature === index ? '−' : '+'}</b></button>)}</div><div className="muse-phone"><div className="muse-phone-shadow" /><div className="muse-phone-screen"><div className="muse-phone-head"><span>‹</span><LumaLogo label="Luma" /><span>•••</span></div><div className="muse-phone-paper"><small>PERSONAL SPACE</small><strong>Field trip<br />permission slip</strong><div className="muse-paper-lines" /><span>PDF · ready to send</span></div><div className="muse-bubble white">Filled out the field trip form from your email.</div><div className="muse-bubble blue">Omg I forgot! <i><LumaLogo /></i></div><div className="muse-phone-compose">Send it <b>↑</b></div></div></div></section>
+      <section className="muse-features" id="features"><div className="muse-feature-list">{features.map((feature, index) => <button className={`muse-feature-row ${openFeature === index ? 'active' : ''}`} key={feature.title} onClick={() => setOpenFeature(index)}><span><strong>{feature.title}</strong>{openFeature === index && <small>{feature.body}</small>}</span><b>{openFeature === index ? '−' : '+'}</b></button>)}</div><div className="muse-phone"><div className="muse-phone-shadow" /><div className="muse-phone-screen"><div className="muse-phone-head"><span>‹</span><BrandLogo labelled /><span>•••</span></div><div className="muse-phone-paper"><small>PERSONAL SPACE</small><strong>Field trip<br />permission slip</strong><div className="muse-paper-lines" /><span>PDF · ready to send</span></div><div className="muse-bubble white">Filled out the field trip form from your email.</div><div className="muse-bubble blue">Omg I forgot! <i><BrandLogo /></i></div><div className="muse-phone-compose">Send it <b>↑</b></div></div></div></section>
 
-      <section className="muse-security" id="security"><span className="muse-kicker">SECURE AND IN CONTROL</span><div className="muse-card-grid"><article><span className="muse-card-icon">♢</span><h3>你的个人资料安全可控</h3><p>密钥留在服务端，记忆可以查看、编辑和删除。Luma 只在你授权的边界内工作。</p></article><article><span className="muse-card-icon">✓</span><h3>重要操作先让你确认</h3><p>发送邮件、写入第三方或其他敏感动作会先展示清晰的操作卡片，并保留完整活动记录。</p></article><article><span className="muse-card-icon">◌</span><h3>跨设备保持同一个空间</h3><p>Web、macOS、Windows、iOS 和 Android 共用同一套会话、任务和记忆。</p></article></div></section>
+      <section className="muse-security" id="security"><span className="muse-kicker">SECURE AND IN CONTROL</span><div className="muse-card-grid"><article><span className="muse-card-icon">♢</span><h3>你的个人资料安全可控</h3><p>密钥留在服务端，记忆可以查看、编辑和删除。{productName} 只在你授权的边界内工作。</p></article><article><span className="muse-card-icon">✓</span><h3>重要操作先让你确认</h3><p>发送邮件、写入第三方或其他敏感动作会先展示清晰的操作卡片，并保留完整活动记录。</p></article><article><span className="muse-card-icon">◌</span><h3>跨设备保持同一个空间</h3><p>Web、macOS、Windows、iOS 和 Android 共用同一套会话、任务和记忆。</p></article></div></section>
 
-      <section className="muse-goals" id="goals"><div><span className="muse-kicker">GOALS AND IDEAS</span><h2>让一个想法，<br /><span>变成正在发生的事。</span></h2><p>告诉 Luma 你想去哪里。它会帮你做计划、持续跟进，在变化发生时带着新的建议回来。</p><button className="muse-cta blue" onClick={() => navigate('/login')}>开始一个目标 <span>→</span></button></div><div className="muse-goal-board"><div className="goal-board-top"><span>THIS WEEK</span><b>目标进度</b></div><div className="goal-main"><span>建立个人作品集</span><strong>72%</strong><div><i /></div></div><div className="goal-task"><span className="done">✓</span><p><b>整理项目案例</b><small>已完成 · 今天 09:20</small></p></div><div className="goal-task"><span className="active">→</span><p><b>写首页第一版</b><small>进行中 · Luma 正在跟进</small></p></div><div className="goal-task"><span>○</span><p><b>发布并邀请反馈</b><small>下一步 · 周五</small></p></div></div></section>
+      <section className="muse-goals" id="goals"><div><span className="muse-kicker">GOALS AND IDEAS</span><h2>让一个想法，<br /><span>变成正在发生的事。</span></h2><p>告诉 {productName} 你想去哪里。它会帮你做计划、持续跟进，在变化发生时带着新的建议回来。</p><button className="muse-cta blue" onClick={() => navigate('/login')}>开始一个目标 <span>→</span></button></div><div className="muse-goal-board"><div className="goal-board-top"><span>THIS WEEK</span><b>目标进度</b></div><div className="goal-main"><span>建立个人作品集</span><strong>72%</strong><div><i /></div></div><div className="goal-task"><span className="done">✓</span><p><b>整理项目案例</b><small>已完成 · 今天 09:20</small></p></div><div className="goal-task"><span className="active">→</span><p><b>写首页第一版</b><small>进行中 · {productName} 正在跟进</small></p></div><div className="goal-task"><span>○</span><p><b>发布并邀请反馈</b><small>下一步 · 周五</small></p></div></div></section>
 
-      <section className="muse-faq" id="faq"><span className="muse-kicker">FREQUENTLY ASKED QUESTIONS</span>{['Luma 可以帮我做什么？', 'Luma 会在我关闭应用后继续工作吗？', '我的数据和登录信息安全吗？', '我可以随时删除 Luma 记住的内容吗？'].map((question) => <button key={question}><span>{question}</span><b>＋</b></button>)}</section>
-      <section className="muse-final"><span className="muse-kicker light">准备好了吗？</span><h2>从下一件重要的事开始。</h2><button className="muse-cta" onClick={() => navigate('/login')}>进入 Luma <span>→</span></button></section>
+      <section className="muse-faq" id="faq"><span className="muse-kicker">FREQUENTLY ASKED QUESTIONS</span>{[`${productName} 可以帮我做什么？`, `${productName} 会在我关闭应用后继续工作吗？`, '我的数据和登录信息安全吗？', `我可以随时删除 ${productName} 记住的内容吗？`].map((question) => <button key={question}><span>{question}</span><b>＋</b></button>)}</section>
+      <section className="muse-final"><span className="muse-kicker light">准备好了吗？</span><h2>从下一件重要的事开始。</h2><button className="muse-cta" onClick={() => navigate('/login')}>进入 {productName} <span>→</span></button></section>
     </main>
-    <footer className="muse-footer"><div className="muse-brand footer-brand"><LumaLogo label="Luma" /></div><span>© 2026 Luma · 一个更清晰的个人工作空间</span><div><a href="#security">隐私</a><a href="mailto:hello@luma.local">联系我们</a></div></footer>
+    <footer className="muse-footer"><div className="muse-brand footer-brand"><BrandLogo labelled /></div><span>© 2026 {productName} · 一个更清晰的个人工作空间</span><div><a href="#security">隐私</a><a href="mailto:hello@example.com">联系我们</a></div></footer>
   </div>
 }
 
@@ -2685,6 +2697,7 @@ function FeatureCard({ icon, title, description, tone }) {
 }
 
 function LoginPage({ onAuthenticated }) {
+  const productName = useBrand().product_name
   const [config, setConfig] = useState({ registration_open: false, requires_invite: false })
   const [tab, setTab] = useState('login')
   const [fields, setFields] = useState({ login: '', username: '', email: '', display_name: '', password: '', confirmPassword: '', invite_code: '' })
@@ -2760,9 +2773,9 @@ function LoginPage({ onAuthenticated }) {
   const redirectProvider = providers.find((item) => item?.kind === 'redirect')
   const credentialsProvider = providers.find((item) => item?.kind === 'credentials')
   return <div className="muse-auth-page">
-    <header className="muse-auth-nav"><button className="muse-brand" onClick={() => navigate('/')}><LumaLogo label="Luma" /></button><span>你的个人空间 <button onClick={() => navigate('/')}>了解 Luma</button></span></header>
+    <header className="muse-auth-nav"><button className="muse-brand" onClick={() => navigate('/')}><BrandLogo labelled /></button><span>你的个人空间 <button onClick={() => navigate('/')}>了解 {productName}</button></span></header>
     <main className="muse-auth-main">
-      <div className="muse-auth-icon"><LumaLogo /></div><span className="muse-kicker">YOUR PERSONAL SPACE</span><h1>{registering ? '注册 Luma' : '登录 Luma'}</h1><p>你的数据存放在你部署的服务器上。</p>
+      <div className="muse-auth-icon"><BrandLogo /></div><span className="muse-kicker">YOUR PERSONAL SPACE</span><h1>{registering ? `注册 ${productName}` : `登录 ${productName}`}</h1><p>你的数据存放在你部署的服务器上。</p>
       {passwordProvider && <div className="muse-auth-tabs" role="tablist" aria-label="账号认证"><button id="auth-login-tab" type="button" role="tab" aria-selected={!registering} aria-controls="auth-form" disabled={busy} onClick={() => selectTab('login')}>登录</button>{config.registration_open && <button id="auth-register-tab" type="button" role="tab" aria-selected={registering} aria-controls="auth-form" disabled={busy} onClick={() => selectTab('register')}>注册</button>}</div>}
       {passwordProvider && <form id="auth-form" className="muse-auth-form" role="tabpanel" aria-labelledby={registering ? 'auth-register-tab' : 'auth-login-tab'} onSubmit={submit}>
         {registering ? <>
@@ -2789,7 +2802,7 @@ function LoginPage({ onAuthenticated }) {
       {configError && <p className="muse-auth-help" role="alert">{configError}</p>}
       <div className="muse-auth-divider"><span>在你的服务器上安全登录</span></div><div className="muse-auth-points"><span>◉ <b>跨设备同步</b><small>所有设备都能继续</small></span><span>⌁ <b>隐私优先</b><small>账号和数据由你管理</small></span></div>
     </main>
-    <footer className="muse-auth-footer"><span>© 2026 Luma contributors</span><span>PERSONAL AI, BY LUMA</span></footer>
+    <footer className="muse-auth-footer"><span>© 2026 {productName} contributors</span><span>PERSONAL AI, BY {productName.toUpperCase()}</span></footer>
   </div>
 }
 
@@ -2823,7 +2836,8 @@ async function beginSsoLogin(provider, reportError) {
 }
 
 function RouteLoading() {
-  return <div className="callback-shell route-loading"><div className="callback-card"><Brand /><div className="callback-status loading"><span className="callback-icon">◌</span><h1>正在打开 Luma</h1><p>正在确认你的登录状态…</p></div></div></div>
+  const productName = useBrand().product_name
+  return <div className="callback-shell route-loading"><div className="callback-card"><Brand /><div className="callback-status loading"><span className="callback-icon">◌</span><h1>正在打开 {productName}</h1><p>正在确认你的登录状态…</p></div></div></div>
 }
 
 function RouteServiceUnavailable() {
@@ -2919,4 +2933,4 @@ function RouteApp() {
   return <LandingPage />
 }
 
-createRoot(document.getElementById('root')).render(<RouteApp />)
+createRoot(document.getElementById('root')).render(<BrandProvider apiBase={API_URL}><RouteApp /></BrandProvider>)

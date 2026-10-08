@@ -23,7 +23,7 @@ function renderHarness(overrides = {}) {
   const context = {
     React, displaySecretReferences, toolStatusKey, liveBrowserEvents,
     Icon: ({ name }) => React.createElement('svg', { 'data-icon': name }),
-    LumaLogo: () => React.createElement('svg', { 'data-logo': 'luma' }),
+    BrandLogo: () => React.createElement('svg', { 'data-logo': 'brand' }),
     Markdown: ({ text }) => React.createElement('pre', null, text),
     ChatWidget: ({ widget }) => React.createElement('div', { 'data-widget-id': widget.id }, '结构化卡片'),
     ToolStatusRows: () => null,
