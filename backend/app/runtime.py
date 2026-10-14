@@ -277,7 +277,7 @@ def _job_is_idempotent(job: dict[str, Any]) -> bool:
         # Namespaced registry calls are conservatively non-idempotent unless
         # their explicit read-only suffix is known.  This prevents a retry
         # from repeating an MCP write after a worker crash.
-        if name.startswith(("mcp.", "sandbox.", "browser.")) or name == "browser":
+        if name.startswith(("mcp.", "mcp_", "mcp:", "sandbox.", "browser.")) or name == "browser":
             return False
         if name.startswith("luma.") and not name.rsplit(".", 1)[-1] in {"list", "search", "read"}:
             return False
@@ -878,7 +878,7 @@ def execute_tool(name: str, payload: dict[str, Any], user_id: str = "local") -> 
     raise RuntimeError(f"Runtime tool '{name}' has no executor")
 
 
-def _allowed_tools(payload: dict[str, Any]) -> list[str]:
+def _allowed_tools(payload: dict[str, Any], *, capability_versions: Optional[dict[str, str]] = None) -> list[str]:
     raw = payload.get("allowed_tools", [])
     if raw is None:
         raw = []
@@ -887,6 +887,9 @@ def _allowed_tools(payload: dict[str, Any]) -> list[str]:
     names = list(dict.fromkeys(LEGACY_AGENT_TOOL_ALIASES.get(str(item), str(item)) for item in raw))
     dynamic_names: set[str] = set()
     dynamic_read_names: set[str] = set()
+    capability_names: dict[str, str] = {}
+    current_versions: dict[str, str] = {}
+    legacy_capability_names: dict[str, str] = {}
     try:
         from .agent.tools import registry_for
 
@@ -901,8 +904,28 @@ def _allowed_tools(payload: dict[str, Any]) -> list[str]:
             if str(getattr(item, "risk", item.get("risk", "") if isinstance(item, dict) else "")) == "read"
         }
         dynamic_names.discard("")
+        from .services.capabilities import _tools
+        # The complete owner-filtered index is an authorization map, not
+        # model context. Exact opaque names prevent a prefix wildcard from
+        # turning an approved read job into arbitrary MCP execution.
+        for capability_id, info in _tools(str(payload.get("user_id") or "local")).items():
+            capability_names[capability_id] = info["mcp_name"]
+            current_versions[info["mcp_name"]] = info["version"]
+            dynamic_names.add(info["mcp_name"])
+            if info["read_only"]:
+                dynamic_read_names.add(info["mcp_name"])
+        for item in registered:
+            metadata = getattr(item, "metadata", {})
+            if isinstance(metadata, dict) and metadata.get("connector_id") and metadata.get("tool"):
+                identifier = "mcp:" + str(metadata["connector_id"]) + ":" + str(metadata["tool"])
+                if identifier in capability_names:
+                    legacy_capability_names[item.name] = capability_names[identifier]
     except Exception:
         dynamic_names = set()
+        dynamic_read_names = set()
+        capability_names = {}
+        current_versions = {}
+    names = list(dict.fromkeys(capability_names.get(name, legacy_capability_names.get(name, name)) for name in names))
     if "browser" in names:
         names = list(dict.fromkeys(
             [name for name in names if name != "browser"]
@@ -914,7 +937,10 @@ def _allowed_tools(payload: dict[str, Any]) -> list[str]:
         validate_tool(name)
     # Read-only briefing is the safe default for a prompt-only run when the
     # unified registry cannot be loaded during a rolling deployment.
-    return names or (["luma.briefing"] if not dynamic_names else sorted(dynamic_read_names))
+    selected = names or (["luma.briefing"] if not dynamic_names else sorted(dynamic_read_names))
+    if capability_versions is not None:
+        capability_versions.update({name: current_versions[name] for name in selected if name in current_versions})
+    return selected
 
 
 def _execute_agent_run(payload: dict[str, Any], user_id: str = "local") -> dict[str, Any]:
@@ -927,7 +953,8 @@ def _execute_agent_run(payload: dict[str, Any], user_id: str = "local") -> dict[
     session_id = payload.get("session_id")
     if session_id is not None and (not isinstance(session_id, str) or not session_id.strip()):
         raise ValueError("session_id must be a non-empty string")
-    allowed = _allowed_tools({**payload, "user_id": user_id})
+    allowed_capability_versions: dict[str, str] = {}
+    allowed = _allowed_tools({**payload, "user_id": user_id}, capability_versions=allowed_capability_versions)
 
     from .provider import local_mode
 
@@ -964,6 +991,7 @@ def _execute_agent_run(payload: dict[str, Any], user_id: str = "local") -> dict[
             self.assistant_message_id = None
             self.job_id = payload.get("job_id")
             self.allowed_tools = allowed
+            self.allowed_capability_versions = allowed_capability_versions
             self.allow_code = bool(payload.get("allow_code", False))
             self.job_approval_granted = bool(
                 payload.get("job_id")
@@ -984,6 +1012,10 @@ def _execute_agent_run(payload: dict[str, Any], user_id: str = "local") -> dict[
                         item = dict(row)
                         raw_payload = item.pop("payload_json", "{}")
                         item["payload"] = _decode(raw_payload)
+                        guard = item["payload"].pop("_capability_guard", None)
+                        if isinstance(guard, dict):
+                            item["capability_guard"] = guard
+                            item["approval_payload_json"] = raw_payload
                         if item.get("action") in {"browser.click", "browser.submit"}:
                             guard = item["payload"].pop("_browser_guard", {})
                             item["browser_fingerprint"] = guard.get("fingerprint") if isinstance(guard, dict) else None
@@ -1001,6 +1033,9 @@ def _execute_agent_run(payload: dict[str, Any], user_id: str = "local") -> dict[
             """
             name = getattr(tool, "name", None) or (tool if isinstance(tool, str) else "agent.tool")
             data = args if isinstance(args, dict) else {}
+            metadata = getattr(tool, "metadata", {})
+            if isinstance(metadata, dict) and metadata.get("capability_id"):
+                data = {**data, "_capability_guard": {"id": metadata["capability_id"], "version": metadata["version"]}}
             job_id = payload.get("job_id")
             if not job_id:
                 return {"status": "waiting_approval", "reason": "运行作业缺少 job_id"}

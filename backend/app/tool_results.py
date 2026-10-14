@@ -1,5 +1,7 @@
 """Bound model-visible tool results without cutting through JSON values."""
 
+from __future__ import annotations
+
 import json
 import os
 from typing import Any
@@ -103,8 +105,8 @@ def _bounded_json(value: Any, limit: int) -> str:
     return _compact(value)
 
 
-def tool_result_text(value: Any) -> str:
-    limit = tool_result_max_chars()
+def tool_result_text(value: Any, *, max_chars: int | None = None) -> str:
+    limit = tool_result_max_chars() if max_chars is None else max(256, min(200000, int(max_chars)))
     try:
         text = value if isinstance(value, str) else _compact(value)
     except (TypeError, ValueError):

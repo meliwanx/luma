@@ -141,7 +141,7 @@ class ToolResultTests(unittest.TestCase):
         with patch.dict(os.environ, {"AGENT_TOOL_RESULT_MAX_CHARS": "48000"}), \
                 patch.object(tools, "get_connection") as connection, \
                 patch.object(tools, "connector_from_id", return_value={"endpoint": "https://example.com/mcp"}):
-            connection.return_value.__enter__.return_value.execute.return_value.fetchone.return_value = {"ciphertext": "unused"}
+            connection.return_value.__enter__.return_value.execute.return_value.fetchone.return_value = {"ciphertext": "unused", "endpoint": "https://example.com/mcp", "kind": "mcp", "enabled": 1}
             result = asyncio.run(tools._mcp_executor(ctx, {}, {"connector_id": "connector", "tool": "sample_semantic_query"}))
             text, data, status = loop._as_tool_result(result)
             builtin_text = loop._as_tool_result(tools._result(value))[0]
